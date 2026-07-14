@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useHealthCheck } from '../hooks/useHealthCheck'
 
@@ -16,6 +17,9 @@ export function HomePage() {
       <h1>Task Manager</h1>
       <p>Bem-vindo, {user?.first_name || user?.email}.</p>
       <p className={`status status--${connectionState}`}>{statusLabel[connectionState]}</p>
+      <p>
+        <Link to="/categories">Gerenciar categorias</Link>
+      </p>
       <button type="button" onClick={() => logout()}>
         Sair
       </button>
