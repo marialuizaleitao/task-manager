@@ -1,0 +1,20 @@
+.app {
+  max-width: 32rem;
+  margin: 4rem auto;
+  padding: 0 1.5rem;
+  text-align: center;
+  font-family: system-ui, sans-serif;
+}
+
+.status {
+  font-size: 0.95rem;
+  color: #666;
+}
+
+.status--online {
+  color: #1a7f37;
+}
+
+.status--offline {
+  color: #cf222e;
+}
