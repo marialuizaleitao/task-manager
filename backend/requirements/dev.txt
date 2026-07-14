@@ -1,0 +1,3 @@
+# Dependências adicionais de desenvolvimento (ex.: pytest, ipython) serão
+# incluídas aqui nas próximas sprints, conforme necessário.
+-r base.txt
