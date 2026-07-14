@@ -1,22 +1,29 @@
-import { useHealthCheck } from './hooks/useHealthCheck'
-import './App.css'
-
-const statusLabel = {
-  checking: 'Verificando conexão com a API...',
-  online: 'API conectada',
-  offline: 'API indisponível',
-}
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { ProtectedRoute } from './components/ProtectedRoute'
+import { AuthProvider } from './contexts/AuthProvider'
+import { HomePage } from './pages/HomePage'
+import { LoginPage } from './pages/LoginPage'
+import { RegisterPage } from './pages/RegisterPage'
 
 function App() {
-  const connectionState = useHealthCheck()
-
   return (
-    <main className="app">
-      <h1>Task Manager</h1>
-      <p className={`status status--${connectionState}`}>
-        {statusLabel[connectionState]}
-      </p>
-    </main>
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <HomePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
   )
 }
 

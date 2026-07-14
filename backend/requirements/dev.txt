@@ -1,3 +1,4 @@
-# Dependências adicionais de desenvolvimento (ex.: pytest, ipython) serão
-# incluídas aqui nas próximas sprints, conforme necessário.
 -r base.txt
+
+pytest==8.3.4
+pytest-django==4.9.0
