@@ -2,7 +2,7 @@
 
 Aplicação web de gerenciamento de tarefas (To-Do List), desenvolvida como case técnico para demonstrar práticas profissionais de engenharia de software: arquitetura em camadas, containerização, testes automatizados e CI/CD.
 
-> **Status atual:** Sprint 0 — estrutura inicial do projeto. Nenhuma funcionalidade de negócio foi implementada ainda.
+> **Status atual:** Sprint 1 - Autenticação (JWT), cadastro e login. Backend funcional, frontend em desenvolvimento.
 
 ## Tecnologias
 
@@ -121,8 +121,8 @@ docker compose -f docker-compose.prod.yml up --build
 
 | Sprint | Escopo | Status |
 |---|---|---|
-| 0 | Estrutura inicial, Docker, configuração base | Em andamento |
-| 1 | Autenticação (JWT), cadastro e login | Pendente |
+| 0 | Estrutura inicial, Docker, configuração base | Concluído |
+| 1 | Autenticação (JWT), cadastro e login | Em andamento |
 | 2 | Categorias | Pendente |
 | 3 | CRUD de tarefas | Pendente |
 | 4 | Compartilhamento de tarefas | Pendente |
