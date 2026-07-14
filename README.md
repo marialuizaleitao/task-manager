@@ -2,18 +2,21 @@
 
 Aplicação web de gerenciamento de tarefas (To-Do List), desenvolvida como case técnico para demonstrar práticas profissionais de engenharia de software: arquitetura em camadas, containerização, testes automatizados e CI/CD.
 
-> **Status atual:** Sprint 1 - Autenticação (JWT), cadastro e login. Backend funcional, frontend em desenvolvimento.
+> **Status atual:** Sprint 2 concluída — autenticação (JWT) e categorias funcionais no backend e no frontend.
 
 ## Tecnologias
 
 **Backend**
 - Python 3.13
-- Django 6.0 + Django REST Framework 3.17
+- Django 5.2 (LTS) + Django REST Framework 3.17
+- djangorestframework-simplejwt (autenticação JWT)
 - PostgreSQL 18
 - django-environ (configuração via variáveis de ambiente)
+- pytest + pytest-django
 
 **Frontend**
 - React 19 + TypeScript
+- React Router
 - Vite 8
 
 **Infraestrutura**
@@ -28,7 +31,7 @@ O backend segue separação em camadas:
 Views → Services → Repositories (quando houver ganho real) → Models
 ```
 
-Regras de negócio ficam concentradas em services, não em views. Repositories são introduzidos apenas quando reduzem acoplamento de forma concreta — não há uma camada de repository nesta sprint, pois ainda não existe nenhuma app de domínio.
+Regras de negócio ficam concentradas em services quando há lógica real a isolar (ex.: `accounts.services.register_user`). Módulos com CRUD simples e sem orquestração adicional (ex.: `categories`) resolvem tudo em serializer + viewset, sem um service artificial. Repositories são introduzidos apenas quando reduzem acoplamento de forma concreta — ainda não há necessidade real no projeto.
 
 O frontend é organizado por responsabilidade (componentes, páginas, hooks, contextos e serviços de API), seguindo o mesmo princípio: cada pasta só existe quando há conteúdo real que a justifique.
 
@@ -37,25 +40,34 @@ O frontend é organizado por responsabilidade (componentes, páginas, hooks, con
 ```
 task-manager/
 ├── backend/
+│   ├── apps/
+│   │   ├── accounts/       # Custom User, JWT, registro, login, /me
+│   │   └── categories/     # CRUD de categorias
 │   ├── config/
 │   │   ├── settings/
 │   │   │   ├── base.py
 │   │   │   ├── dev.py
-│   │   │   └── prod.py
+│   │   │   ├── prod.py
+│   │   │   └── test.py
 │   │   ├── urls.py
-│   │   ├── views.py       # views de infraestrutura (health check)
+│   │   ├── views.py        # views de infraestrutura (health check)
 │   │   ├── wsgi.py
 │   │   └── asgi.py
 │   ├── requirements/
 │   │   ├── base.txt
 │   │   ├── dev.txt
 │   │   └── prod.txt
+│   ├── conftest.py
+│   ├── pytest.ini
 │   ├── manage.py
 │   └── Dockerfile
 ├── frontend/
 │   ├── src/
+│   │   ├── components/     # CategoryForm, CategoryList, ProtectedRoute
+│   │   ├── contexts/       # AuthContext / AuthProvider
 │   │   ├── hooks/
-│   │   ├── services/
+│   │   ├── pages/          # LoginPage, RegisterPage, HomePage, CategoriesPage
+│   │   ├── services/       # clientes de API (auth, categories, tokenStorage)
 │   │   ├── App.tsx
 │   │   └── main.tsx
 │   └── Dockerfile
@@ -68,7 +80,7 @@ task-manager/
 └── README.md
 ```
 
-As pastas `apps/` (backend) e `components/`, `pages/`, `contexts/` (frontend) previstas na arquitetura geral do projeto serão criadas a partir da Sprint 1, quando houver conteúdo real para elas. Diretórios vazios não são versionados propositalmente.
+`pages/` (backend, futuras apps `tasks`/`sharing`) e componentes de frontend ainda não escritos continuam fora do repositório até existir conteúdo real — diretórios vazios não são versionados propositalmente.
 
 ## Fluxo Git
 
@@ -106,6 +118,7 @@ Pré-requisitos: Docker e Docker Compose instalados.
 ```bash
 cp .env.example .env
 docker compose up --build
+docker compose exec backend python manage.py migrate
 ```
 
 - Backend: http://localhost:8000/api/health/
@@ -117,13 +130,19 @@ Para o ambiente de produção (build otimizado do frontend servido via Nginx, ba
 docker compose -f docker-compose.prod.yml up --build
 ```
 
+## Testes
+
+```bash
+docker compose exec backend pytest -v
+```
+
 ## Roadmap
 
 | Sprint | Escopo | Status |
 |---|---|---|
 | 0 | Estrutura inicial, Docker, configuração base | Concluído |
-| 1 | Autenticação (JWT), cadastro e login | Em andamento |
-| 2 | Categorias | Pendente |
+| 1 | Autenticação (JWT), cadastro e login | Concluído |
+| 2 | Categorias | Concluído |
 | 3 | CRUD de tarefas | Pendente |
 | 4 | Compartilhamento de tarefas | Pendente |
 | 5 | Filtros, busca e paginação | Pendente |
