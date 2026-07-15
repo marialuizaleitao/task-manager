@@ -1,4 +1,5 @@
 import { api } from './api'
+import type { PaginatedResponse } from './pagination'
 
 export interface Category {
   id: number
@@ -13,13 +14,6 @@ export interface CategoryPayload {
   name: string
   description?: string
   color: string
-}
-
-export interface PaginatedResponse<T> {
-  count: number
-  next: string | null
-  previous: string | null
-  results: T[]
 }
 
 export async function listCategories(nameFilter?: string): Promise<PaginatedResponse<Category>> {
