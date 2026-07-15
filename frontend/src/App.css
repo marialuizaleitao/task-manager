@@ -38,6 +38,7 @@ form {
 .filter-form,
 .filters {
   flex-direction: row;
+  flex-wrap: wrap;
   align-items: flex-end;
   margin: 1.5rem 0;
 }
@@ -173,4 +174,37 @@ button {
 
 .share-item span:first-child {
   flex: 1;
+}
+
+.active-filters {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.active-filters li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #f1f3f5;
+  border-radius: 999px;
+  padding: 0.25rem 0.5rem 0.25rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+.active-filters button {
+  padding: 0.1rem 0.5rem;
+  font-size: 0.8rem;
+  border-radius: 999px;
+  border: none;
+  background: #dee2e6;
+}
+
+.pagination-nav {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
 }

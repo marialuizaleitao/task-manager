@@ -2,7 +2,7 @@
 
 Aplicação web de gerenciamento de tarefas (To-Do List), desenvolvida como case técnico para demonstrar práticas profissionais de engenharia de software: arquitetura em camadas, containerização, testes automatizados e CI/CD.
 
-> **Status atual:** Sprint 4 concluída — autenticação (JWT), categorias, CRUD de tarefas e compartilhamento de tarefas entre usuários funcionais no backend e no frontend.
+> **Status atual:** Sprint 5 concluída — autenticação (JWT), categorias, CRUD de tarefas, compartilhamento e busca/filtros/ordenação avançados funcionais no backend e no frontend.
 
 ## Tecnologias
 
@@ -10,6 +10,7 @@ Aplicação web de gerenciamento de tarefas (To-Do List), desenvolvida como case
 - Python 3.13
 - Django 5.2 (LTS) + Django REST Framework 3.17
 - djangorestframework-simplejwt (autenticação JWT)
+- django-filter (filtros combináveis via FilterSet)
 - PostgreSQL 18
 - django-environ (configuração via variáveis de ambiente)
 - pytest + pytest-django
@@ -37,7 +38,7 @@ O frontend é organizado por responsabilidade (componentes, páginas, hooks, con
 
 ### Autorização e compartilhamento de tarefas
 
-A partir da Sprint 4, o projeto tem dois mecanismos de autorização que atuam em conjunto:
+Desde a Sprint 4, o projeto tem dois mecanismos de autorização que atuam em conjunto:
 
 - **`get_queryset()`** continua decidindo o que é *visível*: na listagem principal (`GET /api/tasks/`), só tarefas do próprio usuário; nas ações de detalhe, tarefas próprias e tarefas compartilhadas.
 - **`TaskAccessPermission`** (`apps/sharing/permissions.py`) decide o que é *permitido* dentro do que é visível, por ação: o dono tem acesso irrestrito; um compartilhamento `READ` permite apenas visualizar; um compartilhamento `EDIT` permite visualizar e editar, mas nunca excluir a tarefa nem gerenciar seus compartilhamentos.
@@ -45,6 +46,18 @@ A partir da Sprint 4, o projeto tem dois mecanismos de autorização que atuam e
 O modelo de compartilhamento (`TaskShare`) é uma tabela intermediária simples — `task`, `shared_with`, `permission`, `created_at`, com uma constraint de unicidade por par tarefa/usuário — em vez de um `ManyToManyField` com `through` (que adicionaria uma camada de açúcar sintático sem uso real, já que toda consulta relevante precisa do `permission` junto do usuário) ou de uma ACL genérica via `contenttypes` (abstração prematura: hoje só `Task` precisa ser compartilhável).
 
 `apps/sharing` existe como app própria porque compartilhamento é uma responsabilidade distinta de CRUD de tarefa — mesmo com as rotas de gerenciamento de compartilhamento aninhadas em `/api/tasks/{id}/...` por serem parte do recurso `Task`, todo o modelo, serializers e a permission class vivem em `sharing`.
+
+### Busca, filtros e ordenação de tarefas
+
+A partir da Sprint 5, `TaskViewSet` e `SharedTaskListView` (`/api/shared-tasks/`) compartilham o mesmo pipeline de filtragem, definido uma única vez em `apps/tasks/filters.py`:
+
+- **`TaskFilterSet`** (django-filter) resolve os filtros combináveis: `category` (aceitando o sentinel `none`), `completed`, `due_date_before/after`, `created_before/after`. Um `FilterSet` declarativo passou a valer a pena aqui porque são 6 filtros combináveis — abaixo disso (como o filtro único de nome em `categories`, Sprint 2) um `if` simples continua sendo a escolha certa.
+- **`SearchFilter`** (`search_fields = ["title", "description"]`) cobre a busca textual — `icontains` já é nativamente case insensitive.
+- **`OrderingFilter`** (`ordering_fields = ["title", "due_date", "created_at", "updated_at"]`) permite ordenação apenas pelos campos explicitamente liberados; qualquer outro campo em `?ordering=` é ignorado silenciosamente pelo próprio DRF, sem erro e sem expor colunas não previstas.
+
+Não existe filtro `?shared=true` em `/api/tasks/`: a listagem principal permanece restrita ao próprio dono (regra da Sprint 4), e `/api/shared-tasks/` já cobre "tarefas compartilhadas comigo" — reaproveitando o mesmo `FilterSet`/busca/ordenação em vez de duplicar essa lógica ou misturar as duas listagens.
+
+Dois índices compostos (`Task.Meta.indexes`) foram adicionados nesta sprint — `(owner, due_date)` e `(owner, -created_at)` — depois de confirmar via `QuerySet.explain()` que filtrar ou ordenar por esses campos forçava um `TEMP B-TREE` mesmo após a redução por `owner_id` via índice. Nenhum outro índice foi criado: filtro por `completed` (baixa cardinalidade) e por `category` (já indexado pela FK) não mostraram esse padrão.
 
 ## Estrutura de diretórios
 
@@ -54,7 +67,7 @@ task-manager/
 │   ├── apps/
 │   │   ├── accounts/       # Custom User, JWT, registro, login, /me
 │   │   ├── categories/     # CRUD de categorias
-│   │   ├── tasks/          # CRUD de tarefas
+│   │   ├── tasks/          # CRUD de tarefas, filtros (filters.py)
 │   │   └── sharing/        # Compartilhamento de tarefas (TaskShare, permissions)
 │   ├── config/
 │   │   ├── settings/
@@ -156,7 +169,7 @@ docker compose exec backend pytest -v
 | 2 | Categorias | Concluído |
 | 3 | CRUD de tarefas | Concluído |
 | 4 | Compartilhamento de tarefas | Concluído |
-| 5 | Filtros, busca e paginação | Pendente |
+| 5 | Busca, filtros avançados, ordenação e paginação | Concluído |
 | 6 | Integração com API externa | Pendente |
 | 7 | Frontend completo | Pendente |
 | 8 | Testes e cobertura | Pendente |

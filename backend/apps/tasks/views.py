@@ -1,5 +1,6 @@
 from django.db.models import Q
-from rest_framework import permissions, status, viewsets
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
@@ -8,12 +9,13 @@ from apps.sharing.models import TaskShare
 from apps.sharing.permissions import TaskAccessPermission
 from apps.sharing.serializers import TaskShareSerializer
 
+from .filters import TASK_ORDERING_FIELDS, TASK_SEARCH_FIELDS, TaskFilterSet
 from .models import Task
 from .serializers import TaskSerializer
 
 
 class TaskViewSet(viewsets.ModelViewSet):
-    """CRUD de tarefas, incluindo gestão de compartilhamento.
+    """CRUD de tarefas, incluindo busca, filtros, ordenação e compartilhamento.
 
     Tarefas próprias têm acesso irrestrito ao dono. Tarefas compartilhadas
     ficam visíveis para ações de detalhe (não para a listagem principal, que
@@ -23,6 +25,11 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     serializer_class = TaskSerializer
     permission_classes = [permissions.IsAuthenticated, TaskAccessPermission]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = TaskFilterSet
+    search_fields = TASK_SEARCH_FIELDS
+    ordering_fields = TASK_ORDERING_FIELDS
+    ordering = ["-created_at"]
 
     def get_queryset(self):
         # select_related evita uma query extra por tarefa ao ler o id da
@@ -41,16 +48,6 @@ class TaskViewSet(viewsets.ModelViewSet):
             queryset = base.filter(
                 Q(owner=self.request.user) | Q(shares__shared_with=self.request.user)
             ).distinct()
-
-        category_param = self.request.query_params.get("category")
-        if category_param == "none":
-            queryset = queryset.filter(category__isnull=True)
-        elif category_param:
-            queryset = queryset.filter(category_id=category_param)
-
-        completed_param = self.request.query_params.get("completed")
-        if completed_param is not None:
-            queryset = queryset.filter(completed=completed_param.lower() in ("true", "1"))
 
         return queryset
 
