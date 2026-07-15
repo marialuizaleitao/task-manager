@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import type { Category } from '../services/categories'
 import type { Task } from '../services/tasks'
+import { TaskShareManager } from './TaskShareManager'
 
 interface TaskListProps {
   tasks: Task[]
@@ -10,6 +12,8 @@ interface TaskListProps {
 }
 
 export function TaskList({ tasks, categories, onToggleCompleted, onEdit, onDelete }: TaskListProps) {
+  const [expandedShareTaskId, setExpandedShareTaskId] = useState<number | null>(null)
+
   if (tasks.length === 0) {
     return <p>Nenhuma tarefa cadastrada ainda.</p>
   }
@@ -19,27 +23,37 @@ export function TaskList({ tasks, categories, onToggleCompleted, onEdit, onDelet
     return categories.find((item) => item.id === categoryId)?.name ?? null
   }
 
+  function toggleShareManager(taskId: number) {
+    setExpandedShareTaskId((current) => (current === taskId ? null : taskId))
+  }
+
   return (
     <ul className="task-list">
       {tasks.map((task) => (
         <li key={task.id} className={`task-item ${task.completed ? 'task-item--completed' : ''}`}>
-          <input type="checkbox" checked={task.completed} onChange={() => onToggleCompleted(task)} />
-          <div className="task-info">
-            <strong>{task.title}</strong>
-            {task.description && <p>{task.description}</p>}
-            <p className="task-meta">
-              {categoryName(task.category) && <span>{categoryName(task.category)}</span>}
-              {task.due_date && <span>Vence em {task.due_date}</span>}
-            </p>
+          <div className="task-item-row">
+            <input type="checkbox" checked={task.completed} onChange={() => onToggleCompleted(task)} />
+            <div className="task-info">
+              <strong>{task.title}</strong>
+              {task.description && <p>{task.description}</p>}
+              <p className="task-meta">
+                {categoryName(task.category) && <span>{categoryName(task.category)}</span>}
+                {task.due_date && <span>Vence em {task.due_date}</span>}
+              </p>
+            </div>
+            <div className="task-actions">
+              <button type="button" onClick={() => onEdit(task)}>
+                Editar
+              </button>
+              <button type="button" onClick={() => toggleShareManager(task.id)}>
+                Compartilhar
+              </button>
+              <button type="button" onClick={() => onDelete(task)}>
+                Excluir
+              </button>
+            </div>
           </div>
-          <div className="task-actions">
-            <button type="button" onClick={() => onEdit(task)}>
-              Editar
-            </button>
-            <button type="button" onClick={() => onDelete(task)}>
-              Excluir
-            </button>
-          </div>
+          {expandedShareTaskId === task.id && <TaskShareManager taskId={task.id} />}
         </li>
       ))}
     </ul>

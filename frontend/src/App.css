@@ -85,12 +85,27 @@ button {
 
 .category-item,
 .task-item {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
   border: 1px solid #eee;
   border-radius: 6px;
   padding: 0.75rem;
+}
+
+.category-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.task-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.task-item-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .task-item--completed strong {
@@ -127,4 +142,35 @@ button {
 .task-actions {
   display: flex;
   gap: 0.5rem;
+}
+
+.share-manager {
+  border-top: 1px dashed #ddd;
+  padding-top: 0.75rem;
+}
+
+.share-form {
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.share-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.share-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.share-item span:first-child {
+  flex: 1;
 }

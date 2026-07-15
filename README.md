@@ -2,7 +2,7 @@
 
 Aplicação web de gerenciamento de tarefas (To-Do List), desenvolvida como case técnico para demonstrar práticas profissionais de engenharia de software: arquitetura em camadas, containerização, testes automatizados e CI/CD.
 
-> **Status atual:** Sprint 3 concluída — autenticação (JWT), categorias e CRUD de tarefas funcionais no backend e no frontend.
+> **Status atual:** Sprint 4 concluída — autenticação (JWT), categorias, CRUD de tarefas e compartilhamento de tarefas entre usuários funcionais no backend e no frontend.
 
 ## Tecnologias
 
@@ -35,6 +35,17 @@ Regras de negócio ficam concentradas em services quando há lógica real a isol
 
 O frontend é organizado por responsabilidade (componentes, páginas, hooks, contextos e serviços de API), seguindo o mesmo princípio: cada pasta só existe quando há conteúdo real que a justifique. Tipos genéricos reutilizados por mais de um serviço (ex.: resposta paginada) ficam em um módulo próprio (`services/pagination.ts`) em vez de duplicados.
 
+### Autorização e compartilhamento de tarefas
+
+A partir da Sprint 4, o projeto tem dois mecanismos de autorização que atuam em conjunto:
+
+- **`get_queryset()`** continua decidindo o que é *visível*: na listagem principal (`GET /api/tasks/`), só tarefas do próprio usuário; nas ações de detalhe, tarefas próprias e tarefas compartilhadas.
+- **`TaskAccessPermission`** (`apps/sharing/permissions.py`) decide o que é *permitido* dentro do que é visível, por ação: o dono tem acesso irrestrito; um compartilhamento `READ` permite apenas visualizar; um compartilhamento `EDIT` permite visualizar e editar, mas nunca excluir a tarefa nem gerenciar seus compartilhamentos.
+
+O modelo de compartilhamento (`TaskShare`) é uma tabela intermediária simples — `task`, `shared_with`, `permission`, `created_at`, com uma constraint de unicidade por par tarefa/usuário — em vez de um `ManyToManyField` com `through` (que adicionaria uma camada de açúcar sintático sem uso real, já que toda consulta relevante precisa do `permission` junto do usuário) ou de uma ACL genérica via `contenttypes` (abstração prematura: hoje só `Task` precisa ser compartilhável).
+
+`apps/sharing` existe como app própria porque compartilhamento é uma responsabilidade distinta de CRUD de tarefa — mesmo com as rotas de gerenciamento de compartilhamento aninhadas em `/api/tasks/{id}/...` por serem parte do recurso `Task`, todo o modelo, serializers e a permission class vivem em `sharing`.
+
 ## Estrutura de diretórios
 
 ```
@@ -43,7 +54,8 @@ task-manager/
 │   ├── apps/
 │   │   ├── accounts/       # Custom User, JWT, registro, login, /me
 │   │   ├── categories/     # CRUD de categorias
-│   │   └── tasks/          # CRUD de tarefas
+│   │   ├── tasks/          # CRUD de tarefas
+│   │   └── sharing/        # Compartilhamento de tarefas (TaskShare, permissions)
 │   ├── config/
 │   │   ├── settings/
 │   │   │   ├── base.py
@@ -64,11 +76,11 @@ task-manager/
 │   └── Dockerfile
 ├── frontend/
 │   ├── src/
-│   │   ├── components/     # CategoryForm/List, TaskForm/List, ProtectedRoute
+│   │   ├── components/     # CategoryForm/List, TaskForm/List, TaskShareManager, ProtectedRoute
 │   │   ├── contexts/       # AuthContext / AuthProvider
 │   │   ├── hooks/
-│   │   ├── pages/          # LoginPage, RegisterPage, HomePage, CategoriesPage, TasksPage
-│   │   ├── services/       # clientes de API (auth, categories, tasks, pagination, tokenStorage)
+│   │   ├── pages/          # LoginPage, RegisterPage, HomePage, CategoriesPage, TasksPage, SharedTasksPage
+│   │   ├── services/       # clientes de API (auth, categories, tasks, sharing, pagination, tokenStorage)
 │   │   ├── App.tsx
 │   │   └── main.tsx
 │   └── Dockerfile
@@ -80,8 +92,6 @@ task-manager/
 ├── .env.example
 └── README.md
 ```
-
-A futura app `sharing` (backend) e componentes de frontend ainda não escritos continuam fora do repositório até existir conteúdo real — diretórios vazios não são versionados propositalmente.
 
 ## Fluxo Git
 
@@ -145,7 +155,7 @@ docker compose exec backend pytest -v
 | 1 | Autenticação (JWT), cadastro e login | Concluído |
 | 2 | Categorias | Concluído |
 | 3 | CRUD de tarefas | Concluído |
-| 4 | Compartilhamento de tarefas | Pendente |
+| 4 | Compartilhamento de tarefas | Concluído |
 | 5 | Filtros, busca e paginação | Pendente |
 | 6 | Integração com API externa | Pendente |
 | 7 | Frontend completo | Pendente |
