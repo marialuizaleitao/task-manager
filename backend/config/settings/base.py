@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     "apps.categories",
     "apps.tasks",
     "apps.sharing",
+    "apps.integrations.google_calendar",
 ]
 
 MIDDLEWARE = [
@@ -117,3 +118,20 @@ SIMPLE_JWT = {
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "user_id",
 }
+
+# ---------------------------------------------------------------------------
+# Integração: Google Calendar (Sprint 6)
+# ---------------------------------------------------------------------------
+GOOGLE_OAUTH_CLIENT_ID = env("GOOGLE_OAUTH_CLIENT_ID", default="")
+GOOGLE_OAUTH_CLIENT_SECRET = env("GOOGLE_OAUTH_CLIENT_SECRET", default="")
+GOOGLE_OAUTH_REDIRECT_URI = env(
+    "GOOGLE_OAUTH_REDIRECT_URI",
+    default="http://localhost:8000/api/integrations/google-calendar/callback/",
+)
+
+GOOGLE_TOKEN_ENCRYPTION_KEY = env("GOOGLE_TOKEN_ENCRYPTION_KEY", default="")
+
+GOOGLE_API_TIMEOUT_SECONDS = env.float("GOOGLE_API_TIMEOUT_SECONDS", default=10.0)
+GOOGLE_API_MAX_RETRIES = env.int("GOOGLE_API_MAX_RETRIES", default=2)
+
+FRONTEND_BASE_URL = env("FRONTEND_BASE_URL", default="http://localhost:5173")
