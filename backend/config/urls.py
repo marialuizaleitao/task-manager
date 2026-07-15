@@ -9,4 +9,5 @@ urlpatterns = [
     path("api/auth/", include("apps.accounts.urls", namespace="accounts")),
     path("api/", include("apps.categories.urls", namespace="categories")),
     path("api/", include("apps.tasks.urls", namespace="tasks")),
+    path("api/", include("apps.sharing.urls", namespace="sharing")),
 ]
