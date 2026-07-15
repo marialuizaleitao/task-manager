@@ -20,17 +20,34 @@ export interface TaskPayload {
   due_date?: string | null
 }
 
+export type TaskOrdering = 'title' | '-title' | 'due_date' | '-due_date' | 'created_at' | '-created_at' | 'updated_at' | '-updated_at'
+
 export interface TaskFilters {
   category?: string
   completed?: boolean
+  search?: string
+  ordering?: TaskOrdering
+  due_date_before?: string
+  due_date_after?: string
+  created_before?: string
+  created_after?: string
 }
 
-export async function listTasks(filters: TaskFilters = {}): Promise<PaginatedResponse<Task>> {
+function buildParams(filters: TaskFilters): Record<string, string> {
   const params: Record<string, string> = {}
   if (filters.category) params.category = filters.category
   if (filters.completed !== undefined) params.completed = String(filters.completed)
+  if (filters.search) params.search = filters.search
+  if (filters.ordering) params.ordering = filters.ordering
+  if (filters.due_date_before) params.due_date_before = filters.due_date_before
+  if (filters.due_date_after) params.due_date_after = filters.due_date_after
+  if (filters.created_before) params.created_before = filters.created_before
+  if (filters.created_after) params.created_after = filters.created_after
+  return params
+}
 
-  const { data } = await api.get<PaginatedResponse<Task>>('/tasks/', { params })
+export async function listTasks(filters: TaskFilters = {}): Promise<PaginatedResponse<Task>> {
+  const { data } = await api.get<PaginatedResponse<Task>>('/tasks/', { params: buildParams(filters) })
   return data
 }
 
