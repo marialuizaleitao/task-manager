@@ -5,6 +5,7 @@ import { CategoriesPage } from './pages/CategoriesPage'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
+import { SharedTasksPage } from './pages/SharedTasksPage'
 import { TasksPage } from './pages/TasksPage'
 
 function App() {
@@ -35,6 +36,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <TasksPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/shared-tasks"
+            element={
+              <ProtectedRoute>
+                <SharedTasksPage />
               </ProtectedRoute>
             }
           />

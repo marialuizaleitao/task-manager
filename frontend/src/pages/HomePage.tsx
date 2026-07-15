@@ -21,6 +21,9 @@ export function HomePage() {
         <Link to="/tasks">Minhas tarefas</Link>
       </p>
       <p>
+        <Link to="/shared-tasks">Tarefas compartilhadas comigo</Link>
+      </p>
+      <p>
         <Link to="/categories">Gerenciar categorias</Link>
       </p>
       <button type="button" onClick={() => logout()}>
