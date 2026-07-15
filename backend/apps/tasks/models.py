@@ -28,6 +28,17 @@ class Task(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            # A Sprint 5 adiciona due_date_before/after e ordering=due_date;
+            # sem este índice, filtrar ou ordenar por due_date force um sort
+            # temporário (TEMP B-TREE) mesmo após reduzir por owner_id via
+            # índice — confirmado empiricamente com QuerySet.explain().
+            models.Index(fields=["owner", "due_date"], name="tasks_owner_due_date_idx"),
+            # created_at é a ordenação padrão de toda listagem (Meta.ordering)
+            # e também ganhou filtro de intervalo (created_before/after)
+            # nesta sprint; mesmo padrão de TEMP B-TREE observado sem índice.
+            models.Index(fields=["owner", "-created_at"], name="tasks_owner_created_idx"),
+        ]
 
     def __str__(self) -> str:
         return self.title
