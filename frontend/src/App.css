@@ -7,7 +7,8 @@
   font-family: system-ui, sans-serif;
 }
 
-.categories-page {
+.categories-page,
+.tasks-page {
   max-width: 36rem;
   margin: 3rem auto;
   padding: 0 1.5rem;
@@ -34,8 +35,10 @@ form {
   text-align: left;
 }
 
-.filter-form {
+.filter-form,
+.filters {
   flex-direction: row;
+  align-items: flex-end;
   margin: 1.5rem 0;
 }
 
@@ -46,7 +49,8 @@ label {
   font-size: 0.9rem;
 }
 
-input {
+input,
+select {
   padding: 0.5rem;
   font-size: 1rem;
   border: 1px solid #ccc;
@@ -69,7 +73,8 @@ button {
   font-size: 0.9rem;
 }
 
-.category-list {
+.category-list,
+.task-list {
   list-style: none;
   padding: 0;
   margin: 1.5rem 0;
@@ -78,13 +83,19 @@ button {
   gap: 0.5rem;
 }
 
-.category-item {
+.category-item,
+.task-item {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   border: 1px solid #eee;
   border-radius: 6px;
   padding: 0.75rem;
+}
+
+.task-item--completed strong {
+  text-decoration: line-through;
+  color: #999;
 }
 
 .category-swatch {
@@ -94,18 +105,26 @@ button {
   flex-shrink: 0;
 }
 
-.category-info {
+.category-info,
+.task-info {
   flex: 1;
   text-align: left;
 }
 
-.category-info p {
+.category-info p,
+.task-info p {
   margin: 0.25rem 0 0;
   color: #666;
   font-size: 0.9rem;
 }
 
-.category-actions {
+.task-meta {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.category-actions,
+.task-actions {
   display: flex;
   gap: 0.5rem;
 }

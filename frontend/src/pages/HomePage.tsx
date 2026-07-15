@@ -18,6 +18,9 @@ export function HomePage() {
       <p>Bem-vindo, {user?.first_name || user?.email}.</p>
       <p className={`status status--${connectionState}`}>{statusLabel[connectionState]}</p>
       <p>
+        <Link to="/tasks">Minhas tarefas</Link>
+      </p>
+      <p>
         <Link to="/categories">Gerenciar categorias</Link>
       </p>
       <button type="button" onClick={() => logout()}>

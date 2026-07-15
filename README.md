@@ -2,7 +2,7 @@
 
 Aplicação web de gerenciamento de tarefas (To-Do List), desenvolvida como case técnico para demonstrar práticas profissionais de engenharia de software: arquitetura em camadas, containerização, testes automatizados e CI/CD.
 
-> **Status atual:** Sprint 2 concluída — autenticação (JWT) e categorias funcionais no backend e no frontend.
+> **Status atual:** Sprint 3 concluída — autenticação (JWT), categorias e CRUD de tarefas funcionais no backend e no frontend.
 
 ## Tecnologias
 
@@ -31,9 +31,9 @@ O backend segue separação em camadas:
 Views → Services → Repositories (quando houver ganho real) → Models
 ```
 
-Regras de negócio ficam concentradas em services quando há lógica real a isolar (ex.: `accounts.services.register_user`). Módulos com CRUD simples e sem orquestração adicional (ex.: `categories`) resolvem tudo em serializer + viewset, sem um service artificial. Repositories são introduzidos apenas quando reduzem acoplamento de forma concreta — ainda não há necessidade real no projeto.
+Regras de negócio ficam concentradas em services quando há lógica real a isolar (ex.: `accounts.services.register_user`). Módulos com CRUD simples e sem orquestração adicional (`categories`, `tasks`) resolvem tudo em serializer + viewset, sem um service artificial. Repositories são introduzidos apenas quando reduzem acoplamento de forma concreta — ainda não há necessidade real no projeto.
 
-O frontend é organizado por responsabilidade (componentes, páginas, hooks, contextos e serviços de API), seguindo o mesmo princípio: cada pasta só existe quando há conteúdo real que a justifique.
+O frontend é organizado por responsabilidade (componentes, páginas, hooks, contextos e serviços de API), seguindo o mesmo princípio: cada pasta só existe quando há conteúdo real que a justifique. Tipos genéricos reutilizados por mais de um serviço (ex.: resposta paginada) ficam em um módulo próprio (`services/pagination.ts`) em vez de duplicados.
 
 ## Estrutura de diretórios
 
@@ -42,7 +42,8 @@ task-manager/
 ├── backend/
 │   ├── apps/
 │   │   ├── accounts/       # Custom User, JWT, registro, login, /me
-│   │   └── categories/     # CRUD de categorias
+│   │   ├── categories/     # CRUD de categorias
+│   │   └── tasks/          # CRUD de tarefas
 │   ├── config/
 │   │   ├── settings/
 │   │   │   ├── base.py
@@ -63,11 +64,11 @@ task-manager/
 │   └── Dockerfile
 ├── frontend/
 │   ├── src/
-│   │   ├── components/     # CategoryForm, CategoryList, ProtectedRoute
+│   │   ├── components/     # CategoryForm/List, TaskForm/List, ProtectedRoute
 │   │   ├── contexts/       # AuthContext / AuthProvider
 │   │   ├── hooks/
-│   │   ├── pages/          # LoginPage, RegisterPage, HomePage, CategoriesPage
-│   │   ├── services/       # clientes de API (auth, categories, tokenStorage)
+│   │   ├── pages/          # LoginPage, RegisterPage, HomePage, CategoriesPage, TasksPage
+│   │   ├── services/       # clientes de API (auth, categories, tasks, pagination, tokenStorage)
 │   │   ├── App.tsx
 │   │   └── main.tsx
 │   └── Dockerfile
@@ -80,7 +81,7 @@ task-manager/
 └── README.md
 ```
 
-`pages/` (backend, futuras apps `tasks`/`sharing`) e componentes de frontend ainda não escritos continuam fora do repositório até existir conteúdo real — diretórios vazios não são versionados propositalmente.
+A futura app `sharing` (backend) e componentes de frontend ainda não escritos continuam fora do repositório até existir conteúdo real — diretórios vazios não são versionados propositalmente.
 
 ## Fluxo Git
 
@@ -143,7 +144,7 @@ docker compose exec backend pytest -v
 | 0 | Estrutura inicial, Docker, configuração base | Concluído |
 | 1 | Autenticação (JWT), cadastro e login | Concluído |
 | 2 | Categorias | Concluído |
-| 3 | CRUD de tarefas | Pendente |
+| 3 | CRUD de tarefas | Concluído |
 | 4 | Compartilhamento de tarefas | Pendente |
 | 5 | Filtros, busca e paginação | Pendente |
 | 6 | Integração com API externa | Pendente |
