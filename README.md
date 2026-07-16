@@ -211,6 +211,22 @@ docker compose -f docker-compose.prod.yml up --build
    ```
    e defina o resultado em `GOOGLE_TOKEN_ENCRYPTION_KEY`.
 
+### Solução de problemas
+
+Toda variável de ambiente da integração pode ser conferida em runtime, dentro do container:
+
+```bash
+docker compose exec backend python -c "from django.conf import settings; print(repr(settings.GOOGLE_TOKEN_ENCRYPTION_KEY))"
+```
+
+Isso resolve a maioria dos erros abaixo mais rápido do que ler o traceback.
+
+- **O Compose só lê o `.env` ao criar o container, não a cada `restart`.** Depois de editar o `.env`, `docker compose restart backend` não é suficiente — o processo continua com as variáveis antigas. Use `docker compose up -d --force-recreate backend` (ou `down && up`).
+- **`Missing required parameter: client_id` na tela do Google:** o backend está enviando `GOOGLE_OAUTH_CLIENT_ID` vazio. Quase sempre é o ponto anterior — o container não recriado depois que a variável foi adicionada ao `.env`.
+- **`Fernet key must be 32 url-safe base64-encoded bytes`:** `GOOGLE_TOKEN_ENCRYPTION_KEY` está ausente, vazia ou corrompida. Confira com o comando acima; o valor precisa ter exatamente 44 caracteres (32 bytes em base64).
+- **Mesmo erro, mas com `Incorrect padding` no traceback:** o valor da chave foi salvo com quebra de linha `CRLF` (comum em editores do Windows) ou está entre aspas. Nunca envolva valores em aspas no `.env` — `docker compose` não remove aspas, elas passam a fazer parte do valor.
+- **Mesmo erro novamente, mesmo depois de corrigir:** confira se a linha no `.env` não ficou duplicada (ex.: `GOOGLE_TOKEN_ENCRYPTION_KEY=GOOGLE_TOKEN_ENCRYPTION_KEY=...`), o que acontece ao colar um valor por cima de uma correção anterior sem apagar o prefixo. Rode `grep GOOGLE_TOKEN_ENCRYPTION_KEY .env` e confirme que existe uma única linha, com um único `=`.
+
 ## Limitações conhecidas
 
 - **Escopo `calendar.events` é sensível para o Google** e exigiria um processo de verificação do app para uso público (vídeo demonstrativo, política de privacidade hospedada, revisão manual). Para este projeto — um case técnico, não um produto com usuários reais — o app permanece deliberadamente em modo **Testing**: funciona normalmente para até 100 usuários adicionados manualmente como **Test users** na tela de consentimento OAuth, sem o custo do processo de verificação. Isso é uma decisão consciente, não uma falha.
