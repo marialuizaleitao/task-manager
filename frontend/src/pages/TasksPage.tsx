@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { GoogleCalendarPanel } from '../components/GoogleCalendarPanel'
 import { TaskForm } from '../components/TaskForm'
 import { TaskList } from '../components/TaskList'
+import { TelegramPanel } from '../components/TelegramPanel'
 import * as categoriesService from '../services/categories'
 import type { Category } from '../services/categories'
 import * as tasksService from '../services/tasks'
@@ -143,6 +144,7 @@ export function TasksPage() {
       <h1>Tarefas</h1>
 
       <GoogleCalendarPanel />
+      <TelegramPanel />
 
       <TaskForm
         key={editingTask?.id ?? 'new'}

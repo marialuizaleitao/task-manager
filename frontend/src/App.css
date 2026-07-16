@@ -166,6 +166,22 @@ button {
   flex-wrap: wrap;
 }
 
+.telegram-panel {
+  border: 1px solid #eee;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin: 1.5rem 0;
+}
+
+.telegram-panel h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.telegram-panel .task-item-row {
+  flex-wrap: wrap;
+}
+
 .share-form {
   flex-direction: row;
   align-items: flex-end;
