@@ -5,7 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 
-from apps.integrations import sync as calendar_sync
+from apps.integrations import sync as integrations_sync
 from apps.sharing.models import TaskShare
 from apps.sharing.permissions import TaskAccessPermission
 from apps.sharing.serializers import TaskShareSerializer
@@ -54,17 +54,26 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         task = serializer.save(owner=self.request.user)
-        calendar_sync.sync_task(task, calendar_sync.CREATE)
+        integrations_sync.sync_task(task, integrations_sync.CREATE)
+        integrations_sync.notify_task(task, integrations_sync.TaskEvent.CREATED)
 
     def perform_update(self, serializer):
+        # Capturado antes de save(): serializer.instance ainda reflete o
+        # estado anterior da tarefa, o único jeito de detectar a transição
+        # "acabou de ser concluída" sem uma consulta extra ao banco.
+        was_completed = serializer.instance.completed
+
         task = serializer.save()
-        calendar_sync.sync_task(task, calendar_sync.UPDATE)
+        integrations_sync.sync_task(task, integrations_sync.UPDATE)
+
+        if task.completed and not was_completed:
+            integrations_sync.notify_task(task, integrations_sync.TaskEvent.COMPLETED)
 
     def perform_destroy(self, instance):
         # Sincroniza antes do delete: o provedor precisa do vínculo
         # tarefa/evento (GoogleCalendarEventLink), removido em cascata assim
         # que a Task deixa de existir.
-        calendar_sync.sync_task(instance, calendar_sync.DELETE)
+        integrations_sync.sync_task(instance, integrations_sync.DELETE)
         instance.delete()
 
     @action(detail=True, methods=["get", "post"], url_path="shares")
