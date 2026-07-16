@@ -69,6 +69,9 @@ class TaskViewSet(viewsets.ModelViewSet):
         if task.completed and not was_completed:
             integrations_sync.notify_task(task, integrations_sync.TaskEvent.COMPLETED)
 
+        if task.shares.exists():
+            integrations_sync.notify_task_shared_updated(task, actor=self.request.user)
+
     def perform_destroy(self, instance):
         # Sincroniza antes do delete: o provedor precisa do vínculo
         # tarefa/evento (GoogleCalendarEventLink), removido em cascata assim
@@ -85,7 +88,8 @@ class TaskViewSet(viewsets.ModelViewSet):
                 data=request.data, context={"task": task, "request": request}
             )
             serializer.is_valid(raise_exception=True)
-            serializer.save()
+            share = serializer.save()
+            integrations_sync.notify_task_shared(share)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         task_shares = task.shares.select_related("shared_with")

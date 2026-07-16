@@ -8,13 +8,17 @@ os provedores conectados via registry e delegam a cada um:
   calendário (criar/atualizar/remover um evento correspondente).
 - notify_task(task, event): avisa provedores de notificação sobre um evento
   do ciclo de vida da própria tarefa (criada, concluída, vencida).
+- notify_task_shared(share) / notify_task_shared_updated(task, actor):
+  avisam sobre eventos de compartilhamento — adicionados na Sprint 7.1.
 
-notify_task constrói um NotificationEvent e delega a
+Todas são atalhos que constroem um NotificationEvent e delegam a
 apps.integrations.notifications.notify(), que faz o despacho best-effort de
-fato (percorre os provedores conectados, isola a falha de cada um). Esse
-atalho existe porque apps/tasks não deveria precisar conhecer a forma de um
-NotificationEvent para disparar um evento de tarefa — só sync.py precisa
-saber que "task.created" é a key certa para uma tarefa recém-criada.
+fato (percorre os provedores conectados, isola a falha de cada um). Esses
+atalhos existem porque apps/tasks e apps/sharing não deveriam precisar
+conhecer a forma de um NotificationEvent para disparar um evento de tarefa —
+só sync.py precisa saber que "task.created" é a key certa para uma tarefa
+recém-criada. Um domínio futuro sem esse tipo de atalho (ex.: apps/accounts)
+chamaria notifications.notify() diretamente.
 
 sync_task continua best-effort e isolado por provedor aqui mesmo (não em
 notifications.py), porque calendário e notificação são registries e
@@ -83,3 +87,39 @@ def notify_task(task, event: str) -> None:
         raise ValueError(f"Evento de notificação desconhecido: {event!r}")
 
     notifications.notify(NotificationEvent(key=f"task.{event}", user=task.owner, subject=task))
+
+
+def notify_task_shared(share) -> None:
+    """Notifica o usuário com quem uma tarefa acabou de ser compartilhada."""
+    notifications.notify(
+        NotificationEvent(
+            key="task.shared",
+            user=share.shared_with,
+            subject=share.task,
+            context={"permission": share.permission},
+        )
+    )
+
+
+def notify_task_shared_updated(task, actor) -> None:
+    """Notifica os usuários afetados por uma alteração em uma tarefa compartilhada.
+
+    "Afetados" = dono da tarefa + todos com quem ela está compartilhada,
+    exceto quem fez a própria alteração — evita notificar o autor sobre a
+    própria ação, e o dict por id garante que cada afetado seja notificado
+    uma única vez mesmo que apareça mais de uma vez na relação.
+    """
+    recipients = {task.owner_id: task.owner}
+    for share in task.shares.select_related("shared_with"):
+        recipients[share.shared_with_id] = share.shared_with
+    recipients.pop(actor.id, None)
+
+    for recipient in recipients.values():
+        notifications.notify(
+            NotificationEvent(
+                key="task.shared_updated",
+                user=recipient,
+                subject=task,
+                context={"actor": actor},
+            )
+        )

@@ -5,6 +5,7 @@ import pytest
 
 from apps.integrations import registry, sync
 from apps.integrations.interfaces import NotificationEvent
+from apps.sharing.models import TaskShare
 
 
 @pytest.fixture
@@ -164,3 +165,51 @@ def test_notify_task_is_independent_from_sync_task(fake_provider, fake_notificat
 
     fake_provider.sync_create.assert_not_called()
     fake_notification_provider.notify.assert_called_once()
+
+
+@pytest.mark.django_db
+def test_notify_task_shared_sends_event_to_recipient(fake_notification_provider, task_factory, another_user):
+    fake_notification_provider.is_connected.return_value = True
+    task = task_factory()
+    share = TaskShare.objects.create(task=task, shared_with=another_user, permission="read")
+
+    sync.notify_task_shared(share)
+
+    fake_notification_provider.notify.assert_called_once_with(
+        NotificationEvent(
+            key="task.shared",
+            user=another_user,
+            subject=task,
+            context={"permission": "read"},
+        )
+    )
+
+
+@pytest.mark.django_db
+def test_notify_task_shared_updated_notifies_owner_and_other_collaborators_except_actor(
+    fake_notification_provider, task_factory, user, another_user, third_user
+):
+    fake_notification_provider.is_connected.return_value = True
+    task = task_factory(owner=user)
+    TaskShare.objects.create(task=task, shared_with=another_user, permission="edit")
+    TaskShare.objects.create(task=task, shared_with=third_user, permission="read")
+
+    sync.notify_task_shared_updated(task, actor=another_user)
+
+    notified_users = {call.args[0].user for call in fake_notification_provider.notify.call_args_list}
+    assert notified_users == {user, third_user}
+
+
+@pytest.mark.django_db
+def test_notify_task_shared_updated_never_notifies_the_actor(
+    fake_notification_provider, task_factory, user, another_user
+):
+    fake_notification_provider.is_connected.return_value = True
+    task = task_factory(owner=user)
+    TaskShare.objects.create(task=task, shared_with=another_user, permission="edit")
+
+    sync.notify_task_shared_updated(task, actor=user)
+
+    notified_users = {call.args[0].user for call in fake_notification_provider.notify.call_args_list}
+    assert user not in notified_users
+    assert notified_users == {another_user}

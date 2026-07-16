@@ -18,6 +18,7 @@ generalizar sem um segundo caso de uso real para validar a abstração.
 from __future__ import annotations
 
 from apps.integrations.interfaces import NotificationEvent
+from apps.sharing.models import TaskShare
 from apps.tasks.models import Task
 
 _DATE_FORMAT = "%d/%m/%Y"
@@ -25,6 +26,10 @@ _DATE_FORMAT = "%d/%m/%Y"
 
 def _format_due_date(task: Task) -> str:
     return task.due_date.strftime(_DATE_FORMAT) if task.due_date else "Sem prazo"
+
+
+def _display_name(user) -> str:
+    return user.first_name or user.email
 
 
 def _task_created(event: NotificationEvent) -> str:
@@ -45,10 +50,45 @@ def _task_overdue(event: NotificationEvent) -> str:
     return "\n".join(lines)
 
 
+def _task_shared(event: NotificationEvent) -> str:
+    task = event.subject
+    permission_label = TaskShare.Permission(event.context["permission"]).label
+    lines = [
+        "🔗 Uma tarefa foi compartilhada com você.",
+        "",
+        "Título:",
+        task.title,
+        "",
+        "Permissão:",
+        permission_label,
+    ]
+    return "\n".join(lines)
+
+
+def _task_shared_updated(event: NotificationEvent) -> str:
+    task = event.subject
+    actor = event.context["actor"]
+    lines = [
+        "🔄 Uma tarefa compartilhada foi atualizada.",
+        "",
+        "Alterado por:",
+        _display_name(actor),
+        "",
+        "Novo prazo:",
+        _format_due_date(task),
+        "",
+        "Status:",
+        "Concluída" if task.completed else "Pendente",
+    ]
+    return "\n".join(lines)
+
+
 _FORMATTERS = {
     "task.created": _task_created,
     "task.completed": _task_completed,
     "task.overdue": _task_overdue,
+    "task.shared": _task_shared,
+    "task.shared_updated": _task_shared_updated,
 }
 
 
