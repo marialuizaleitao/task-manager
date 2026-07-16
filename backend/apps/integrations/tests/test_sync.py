@@ -13,6 +13,13 @@ def fake_provider(monkeypatch):
     return provider
 
 
+@pytest.fixture
+def fake_notification_provider(monkeypatch):
+    provider = MagicMock()
+    monkeypatch.setattr(registry, "_notification_providers", {"fake": lambda: provider})
+    return provider
+
+
 @pytest.mark.django_db
 def test_sync_task_skips_provider_not_connected(fake_provider, task_factory):
     fake_provider.is_connected.return_value = False
@@ -81,3 +88,64 @@ def test_sync_task_isolates_failure_of_one_provider_from_others(monkeypatch, tas
     sync.sync_task(task, sync.CREATE)
 
     healthy_provider.sync_create.assert_called_once_with(task)
+
+
+@pytest.mark.django_db
+def test_notify_task_skips_provider_not_connected(fake_notification_provider, task_factory):
+    fake_notification_provider.is_connected.return_value = False
+    task = task_factory(due_date=date(2026, 8, 1))
+
+    sync.notify_task(task, sync.TaskEvent.CREATED)
+
+    fake_notification_provider.notify_task_created.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_notify_task_routes_created_event(fake_notification_provider, task_factory):
+    fake_notification_provider.is_connected.return_value = True
+    task = task_factory(due_date=date(2026, 8, 1))
+
+    sync.notify_task(task, sync.TaskEvent.CREATED)
+
+    fake_notification_provider.notify_task_created.assert_called_once_with(task)
+
+
+@pytest.mark.django_db
+def test_notify_task_routes_completed_event(fake_notification_provider, task_factory):
+    fake_notification_provider.is_connected.return_value = True
+    task = task_factory(due_date=date(2026, 8, 1))
+
+    sync.notify_task(task, sync.TaskEvent.COMPLETED)
+
+    fake_notification_provider.notify_task_completed.assert_called_once_with(task)
+
+
+@pytest.mark.django_db
+def test_notify_task_routes_overdue_event(fake_notification_provider, task_factory):
+    fake_notification_provider.is_connected.return_value = True
+    task = task_factory(due_date=date(2026, 8, 1))
+
+    sync.notify_task(task, sync.TaskEvent.OVERDUE)
+
+    fake_notification_provider.notify_task_overdue.assert_called_once_with(task)
+
+
+@pytest.mark.django_db
+def test_notify_task_never_raises_when_provider_fails(fake_notification_provider, task_factory):
+    fake_notification_provider.is_connected.return_value = True
+    fake_notification_provider.notify_task_created.side_effect = RuntimeError("Telegram indisponível")
+    task = task_factory(due_date=date(2026, 8, 1))
+
+    sync.notify_task(task, sync.TaskEvent.CREATED)  # não deve levantar
+
+
+@pytest.mark.django_db
+def test_notify_task_is_independent_from_sync_task(fake_provider, fake_notification_provider, task_factory):
+    fake_provider.is_connected.return_value = True
+    fake_notification_provider.is_connected.return_value = True
+    task = task_factory(due_date=date(2026, 8, 1))
+
+    sync.notify_task(task, sync.TaskEvent.CREATED)
+
+    fake_provider.sync_create.assert_not_called()
+    fake_notification_provider.notify_task_created.assert_called_once_with(task)

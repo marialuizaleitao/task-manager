@@ -22,7 +22,10 @@ def detail_url(task_id: int) -> str:
 @pytest.fixture
 def mock_sync_task(monkeypatch):
     mock = MagicMock()
-    monkeypatch.setattr(tasks_views.calendar_sync, "sync_task", mock)
+    monkeypatch.setattr(tasks_views.integrations_sync, "sync_task", mock)
+    # notify_task é uma preocupação separada (ver test_telegram_notifications.py) —
+    # isolada aqui para que estes testes verifiquem apenas o roteamento de sync_task.
+    monkeypatch.setattr(tasks_views.integrations_sync, "notify_task", MagicMock())
     return mock
 
 
@@ -32,7 +35,7 @@ def test_create_task_triggers_sync_create(authenticated_client, mock_sync_task):
 
     assert response.status_code == status.HTTP_201_CREATED
     task = Task.objects.get(id=response.data["id"])
-    mock_sync_task.assert_called_once_with(task, tasks_views.calendar_sync.CREATE)
+    mock_sync_task.assert_called_once_with(task, tasks_views.integrations_sync.CREATE)
 
 
 @pytest.mark.django_db
@@ -43,7 +46,7 @@ def test_update_task_triggers_sync_update(authenticated_client, user, mock_sync_
     response = authenticated_client.patch(detail_url(task.id), {"title": "Tarefa atualizada"})
 
     assert response.status_code == status.HTTP_200_OK
-    mock_sync_task.assert_called_once_with(task, tasks_views.calendar_sync.UPDATE)
+    mock_sync_task.assert_called_once_with(task, tasks_views.integrations_sync.UPDATE)
 
 
 @pytest.mark.django_db
@@ -66,5 +69,5 @@ def test_delete_task_triggers_sync_delete_before_removal(authenticated_client, u
 
     assert response.status_code == status.HTTP_204_NO_CONTENT
     assert captured["id"] == task_id
-    assert captured["action"] == tasks_views.calendar_sync.DELETE
+    assert captured["action"] == tasks_views.integrations_sync.DELETE
     assert not Task.objects.filter(id=task_id).exists()
