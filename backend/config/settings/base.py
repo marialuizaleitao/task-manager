@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "apps.tasks",
     "apps.sharing",
     "apps.integrations.google_calendar",
+    "apps.integrations.telegram",
 ]
 
 MIDDLEWARE = [
@@ -135,3 +136,11 @@ GOOGLE_API_TIMEOUT_SECONDS = env.float("GOOGLE_API_TIMEOUT_SECONDS", default=10.
 GOOGLE_API_MAX_RETRIES = env.int("GOOGLE_API_MAX_RETRIES", default=2)
 
 FRONTEND_BASE_URL = env("FRONTEND_BASE_URL", default="http://localhost:5173")
+
+# ---------------------------------------------------------------------------
+# Integração: Telegram Bot (Sprint 7)
+# ---------------------------------------------------------------------------
+TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", default="")
+
+TELEGRAM_API_TIMEOUT_SECONDS = env.float("TELEGRAM_API_TIMEOUT_SECONDS", default=10.0)
+TELEGRAM_API_MAX_RETRIES = env.int("TELEGRAM_API_MAX_RETRIES", default=2)

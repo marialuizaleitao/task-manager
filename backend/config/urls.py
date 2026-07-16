@@ -14,4 +14,8 @@ urlpatterns = [
         "api/integrations/",
         include("apps.integrations.google_calendar.urls", namespace="google_calendar"),
     ),
+    path(
+        "api/integrations/",
+        include("apps.integrations.telegram.urls", namespace="telegram"),
+    ),
 ]
