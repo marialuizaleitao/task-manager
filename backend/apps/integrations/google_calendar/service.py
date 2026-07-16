@@ -12,11 +12,13 @@ from typing import Callable
 
 from django.utils import timezone
 
+from apps.integrations import notifications
 from apps.integrations.exceptions import (
     AuthenticationExpiredError,
     ExternalServiceError,
     ProviderNotConfiguredError,
 )
+from apps.integrations.interfaces import NotificationEvent
 from apps.tasks.models import Task
 
 from . import oauth
@@ -33,7 +35,7 @@ class GoogleCalendarService:
         if task.due_date is None:
             return
         link, _ = GoogleCalendarEventLink.objects.get_or_create(task=task)
-        self._call(task.owner, link, lambda client: client.create_event(task))
+        self._call(task, link, lambda client: client.create_event(task))
 
     def sync_update(self, task: Task) -> None:
         link = GoogleCalendarEventLink.objects.filter(task=task).first()
@@ -41,7 +43,7 @@ class GoogleCalendarService:
         if task.due_date is None:
             # A tarefa deixou de ter due_date: se havia um evento, remove-o.
             if link is not None and link.google_event_id:
-                self._call(task.owner, link, lambda client: client.delete_event(link.google_event_id), is_delete=True)
+                self._call(task, link, lambda client: client.delete_event(link.google_event_id), is_delete=True)
             return
 
         if link is None or not link.google_event_id:
@@ -50,31 +52,45 @@ class GoogleCalendarService:
             self.sync_create(task)
             return
 
-        self._call(task.owner, link, lambda client: client.update_event(task, link.google_event_id))
+        self._call(task, link, lambda client: client.update_event(task, link.google_event_id))
 
     def sync_delete(self, task: Task) -> None:
         link = GoogleCalendarEventLink.objects.filter(task=task).first()
         if link is None or not link.google_event_id:
             return
-        self._call(task.owner, link, lambda client: client.delete_event(link.google_event_id), is_delete=True)
+        self._call(task, link, lambda client: client.delete_event(link.google_event_id), is_delete=True)
 
     # -- internos -----------------------------------------------------------
 
-    def _call(self, user, link: GoogleCalendarEventLink, operation: Callable, *, is_delete: bool = False):
+    def _call(self, task: Task, link: GoogleCalendarEventLink, operation: Callable, *, is_delete: bool = False):
         try:
-            credential = self._require_credential(user)
+            credential = self._require_credential(task.owner)
             access_token = self._ensure_valid_token(credential)
             with GoogleCalendarClient(access_token, credential.calendar_id) as client:
                 result = operation(client)
         except (AuthenticationExpiredError, ExternalServiceError, ProviderNotConfiguredError) as exc:
             self._mark_failed(link, exc)
+            # Exclusão não gera aviso: a tarefa está prestes a ser removida
+            # do Task Manager de qualquer forma (ver perform_destroy em
+            # apps/tasks/views.py), então "sua tarefa continua salva
+            # normalmente" não se aplicaria a este caso.
+            if not is_delete:
+                self._notify_sync_result(task, succeeded=False)
             raise
 
         if is_delete:
             link.delete()
         else:
             self._mark_synced(link, result)
+            self._notify_sync_result(task, succeeded=True)
         return result
+
+    def _notify_sync_result(self, task: Task, *, succeeded: bool) -> None:
+        # Notificação best-effort de verdade: notifications.notify() nunca
+        # lança exceção, então esta chamada nunca pode transformar um evento
+        # de calendário (sucesso ou falha) em uma falha adicional aqui.
+        key = "calendar.sync_succeeded" if succeeded else "calendar.sync_failed"
+        notifications.notify(NotificationEvent(key=key, user=task.owner, subject=task))
 
     def _get_credential(self, user) -> GoogleCalendarCredential | None:
         return GoogleCalendarCredential.objects.filter(owner=user).first()

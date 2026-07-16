@@ -9,6 +9,7 @@ from apps.integrations.google_calendar import oauth
 from apps.integrations.google_calendar import service as service_module
 from apps.integrations.google_calendar.models import GoogleCalendarEventLink, SyncStatus
 from apps.integrations.google_calendar.service import GoogleCalendarService
+from apps.integrations.interfaces import NotificationEvent
 
 
 @pytest.fixture
@@ -19,6 +20,19 @@ def fake_client(monkeypatch):
     client.__exit__ = MagicMock(return_value=False)
     monkeypatch.setattr(service_module, "GoogleCalendarClient", MagicMock(return_value=client))
     return client
+
+
+@pytest.fixture
+def fake_notify(monkeypatch):
+    """Substitui apps.integrations.notifications.notify por um dublê controlável.
+
+    Usado para verificar que a Sprint 7.1 dispara "calendar.sync_succeeded" /
+    "calendar.sync_failed" sem depender de nenhum provedor de notificação de
+    verdade estar registrado.
+    """
+    mock = MagicMock()
+    monkeypatch.setattr(service_module.notifications, "notify", mock)
+    return mock
 
 
 @pytest.mark.django_db
@@ -82,6 +96,53 @@ def test_sync_create_failure_marks_link_failed_and_reraises(connected_credential
     link = GoogleCalendarEventLink.objects.get(task=task)
     assert link.status == SyncStatus.FAILED
     assert "timeout" in link.last_error
+
+
+@pytest.mark.django_db
+def test_sync_create_success_notifies_calendar_sync_succeeded(connected_credential, task_factory, fake_client, fake_notify):
+    fake_client.create_event.return_value = "evt-1"
+    task = task_factory(due_date=date(2026, 8, 1))
+
+    GoogleCalendarService().sync_create(task)
+
+    fake_notify.assert_called_once_with(
+        NotificationEvent(key="calendar.sync_succeeded", user=task.owner, subject=task)
+    )
+
+
+@pytest.mark.django_db
+def test_sync_create_failure_notifies_calendar_sync_failed(connected_credential, task_factory, fake_client, fake_notify):
+    fake_client.create_event.side_effect = ExternalServiceError("timeout ao criar evento")
+    task = task_factory(due_date=date(2026, 8, 1))
+
+    with pytest.raises(ExternalServiceError):
+        GoogleCalendarService().sync_create(task)
+
+    fake_notify.assert_called_once_with(
+        NotificationEvent(key="calendar.sync_failed", user=task.owner, subject=task)
+    )
+
+
+@pytest.mark.django_db
+def test_sync_delete_does_not_notify(connected_credential, task_factory, fake_client, fake_notify):
+    task = task_factory(due_date=date(2026, 8, 1))
+    GoogleCalendarEventLink.objects.create(task=task, google_event_id="evt-1", status=SyncStatus.SYNCED)
+
+    GoogleCalendarService().sync_delete(task)
+
+    fake_notify.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_sync_delete_failure_does_not_notify(connected_credential, task_factory, fake_client, fake_notify):
+    fake_client.delete_event.side_effect = ExternalServiceError("timeout ao remover evento")
+    task = task_factory(due_date=date(2026, 8, 1))
+    GoogleCalendarEventLink.objects.create(task=task, google_event_id="evt-1", status=SyncStatus.SYNCED)
+
+    with pytest.raises(ExternalServiceError):
+        GoogleCalendarService().sync_delete(task)
+
+    fake_notify.assert_not_called()
 
 
 @pytest.mark.django_db

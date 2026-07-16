@@ -83,12 +83,42 @@ def _task_shared_updated(event: NotificationEvent) -> str:
     return "\n".join(lines)
 
 
+def _calendar_sync_succeeded(event: NotificationEvent) -> str:
+    task = event.subject
+    lines = [
+        "Google Calendar",
+        "",
+        "Sua tarefa foi sincronizada.",
+        "Evento criado com sucesso.",
+        "",
+        "Título:",
+        task.title,
+    ]
+    return "\n".join(lines)
+
+
+def _calendar_sync_failed(event: NotificationEvent) -> str:
+    task = event.subject
+    lines = [
+        "Google Calendar",
+        "",
+        "Não foi possível sincronizar sua tarefa.",
+        "Sua tarefa continua salva normalmente.",
+        "",
+        "Título:",
+        task.title,
+    ]
+    return "\n".join(lines)
+
+
 _FORMATTERS = {
     "task.created": _task_created,
     "task.completed": _task_completed,
     "task.overdue": _task_overdue,
     "task.shared": _task_shared,
     "task.shared_updated": _task_shared_updated,
+    "calendar.sync_succeeded": _calendar_sync_succeeded,
+    "calendar.sync_failed": _calendar_sync_failed,
 }
 
 
