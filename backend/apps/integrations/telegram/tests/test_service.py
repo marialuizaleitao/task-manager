@@ -5,6 +5,7 @@ import pytest
 from django.utils import timezone
 
 from apps.integrations.exceptions import ProviderNotConfiguredError
+from apps.integrations.interfaces import NotificationEvent
 from apps.integrations.telegram import service as service_module
 from apps.integrations.telegram.client import ChatUnreachableError
 from apps.integrations.telegram.models import TelegramConnection
@@ -46,18 +47,26 @@ class TestIsConnected:
         assert TelegramService().is_connected(user) is True
 
 
-class TestNotifications:
-    def test_notify_task_created_skips_task_without_due_date(self, telegram_connection, task_factory, fake_client):
-        task = task_factory(due_date=None)
+class TestNotify:
+    """Cobre TelegramService.notify() para cada evento do catálogo (messages.py).
 
-        TelegramService().notify_task_created(task)
+    A partir da Sprint 7.1, todo evento chega como um NotificationEvent —
+    não há mais um método por tipo de evento (ver interfaces.NotificationProvider).
+    """
+
+    def test_task_created_skips_task_without_due_date(self, telegram_connection, task_factory, fake_client):
+        task = task_factory(due_date=None)
+        event = NotificationEvent(key="task.created", user=task.owner, subject=task)
+
+        TelegramService().notify(event)
 
         fake_client.send_message.assert_not_called()
 
-    def test_notify_task_created_sends_formatted_message(self, telegram_connection, task_factory, fake_client):
+    def test_task_created_sends_formatted_message(self, telegram_connection, task_factory, fake_client):
         task = task_factory(title="Enviar documentação", due_date=date(2026, 7, 20))
+        event = NotificationEvent(key="task.created", user=task.owner, subject=task)
 
-        TelegramService().notify_task_created(task)
+        TelegramService().notify(event)
 
         fake_client.send_message.assert_called_once()
         chat_id, text = fake_client.send_message.call_args[0]
@@ -65,35 +74,47 @@ class TestNotifications:
         assert "Enviar documentação" in text
         assert "20/07/2026" in text
 
-    def test_notify_task_created_includes_category_when_present(
+    def test_task_created_includes_category_when_present(
         self, telegram_connection, task_factory, fake_client, category_factory
     ):
         category = category_factory(name="Trabalho")
         task = task_factory(due_date=date(2026, 7, 20), category=category)
+        event = NotificationEvent(key="task.created", user=task.owner, subject=task)
 
-        TelegramService().notify_task_created(task)
+        TelegramService().notify(event)
 
         _, text = fake_client.send_message.call_args[0]
         assert "Trabalho" in text
 
-    def test_notify_task_completed_sends_message(self, telegram_connection, task_factory, fake_client):
+    def test_task_completed_sends_message(self, telegram_connection, task_factory, fake_client):
         task = task_factory(title="Revisar contrato")
+        event = NotificationEvent(key="task.completed", user=task.owner, subject=task)
 
-        TelegramService().notify_task_completed(task)
+        TelegramService().notify(event)
 
         _, text = fake_client.send_message.call_args[0]
         assert "Revisar contrato" in text
         assert "concluída" in text.lower()
 
-    def test_notify_task_overdue_sends_message(self, telegram_connection, task_factory, fake_client):
+    def test_task_overdue_sends_message(self, telegram_connection, task_factory, fake_client):
         task = task_factory(title="Pagar fornecedor", due_date=date(2026, 7, 1))
+        event = NotificationEvent(key="task.overdue", user=task.owner, subject=task)
 
-        TelegramService().notify_task_overdue(task)
+        TelegramService().notify(event)
 
         _, text = fake_client.send_message.call_args[0]
         assert "Pagar fornecedor" in text
         assert "vencida" in text.lower()
 
+    def test_unknown_event_key_is_ignored(self, telegram_connection, fake_client):
+        event = NotificationEvent(key="unknown.event", user=telegram_connection.owner)
+
+        TelegramService().notify(event)
+
+        fake_client.send_message.assert_not_called()
+
+
+class TestSendText:
     def test_send_text_raises_when_not_connected(self, user):
         with pytest.raises(ProviderNotConfiguredError):
             TelegramService().send_text(user, "oi")

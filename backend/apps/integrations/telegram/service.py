@@ -1,14 +1,21 @@
-"""Implementação de TaskNotificationProvider (apps.integrations.interfaces) para o Telegram.
+"""Implementação de NotificationProvider (apps.integrations.interfaces) para o Telegram.
 
 TelegramService concentra: localizar o chat_id do usuário, validar se a
-integração está configurada e habilitada, formatar e enviar mensagens, e
-manter o estado da conexão (last_contact_at, desabilitação automática ao
-detectar que o bot foi bloqueado). Registrado no registry por
-TelegramConfig.ready() — apps.integrations.sync chama estes métodos apenas
-através da interface, nunca importando esta classe diretamente.
+integração está configurada e habilitada, formatar (via messages.py) e
+enviar mensagens, e manter o estado da conexão (last_contact_at,
+desabilitação automática ao detectar que o bot foi bloqueado). Registrado
+no registry por TelegramConfig.ready() — apps.integrations.notifications
+chama notify() apenas através da interface, nunca importando esta classe
+diretamente.
 
-DailySummaryService vive neste mesmo arquivo (não em um módulo próprio):
-é outro consumidor de TelegramService, sem estado ou contrato de Protocol
+A partir da Sprint 7.1, o Telegram deixou de ser um canal exclusivo de
+"notificações de tarefa" para ser o primeiro provedor de uma arquitetura de
+comunicação mais ampla: notify() é o único ponto de entrada de qualquer
+evento do sistema (ver interfaces.NotificationEvent), e o catálogo em
+messages.py decide como cada um vira texto.
+
+DailySummaryService vive neste mesmo arquivo (não em um módulo próprio): é
+outro consumidor de TelegramService, sem estado ou contrato de Protocol
 próprio, então um novo arquivo só para ele não teria uma responsabilidade
 distinta o bastante para justificar a divisão (ver CLAUDE.md, "antes de
 criar um novo arquivo, verifique se a responsabilidade pode ser atendida
@@ -22,8 +29,10 @@ from django.conf import settings
 from django.utils import timezone
 
 from apps.integrations.exceptions import ProviderNotConfiguredError
+from apps.integrations.interfaces import NotificationEvent
 from apps.tasks.models import Task
 
+from . import messages
 from .client import ChatUnreachableError, TelegramClient
 from .models import TelegramConnection
 
@@ -35,24 +44,31 @@ class TelegramService:
         connection = self._get_connection(user)
         return connection is not None and connection.is_linked() and connection.enabled
 
-    def notify_task_created(self, task: Task) -> None:
-        if task.due_date is None:
+    def notify(self, event: NotificationEvent) -> None:
+        """Envia a mensagem de um evento de sistema, se houver formatter conhecido.
+
+        A única regra de negócio que permanece aqui (fora do catálogo de
+        mensagens): "task.created" só gera notificação quando a tarefa tem
+        due_date — mesma regra da Sprint 7, mantida porque é uma decisão de
+        produto do canal Telegram (avisar sobre uma tarefa sem prazo não
+        agrega nada), não uma questão de formatação de texto.
+        """
+        if event.key == "task.created" and getattr(event.subject, "due_date", None) is None:
             return
-        self.send_text(task.owner, _format_task_created_message(task))
 
-    def notify_task_completed(self, task: Task) -> None:
-        self.send_text(task.owner, _format_task_completed_message(task))
+        text = messages.format_message(event)
+        if text is None:
+            return
 
-    def notify_task_overdue(self, task: Task) -> None:
-        self.send_text(task.owner, _format_task_overdue_message(task))
+        self.send_text(event.user, text)
 
     def send_text(self, user, text: str) -> None:
         """Envia uma mensagem de texto livre ao usuário, se conectado.
 
-        Público (diferente de notify_task_*, que só existem para satisfazer
-        o Protocol TaskNotificationProvider) porque também é usado por
+        Público (diferente de notify(), que só existe para satisfazer o
+        Protocol NotificationProvider) porque também é usado por
         DailySummaryService, que monta sua própria mensagem a partir de uma
-        consulta que não é um evento de ciclo de vida de uma única tarefa.
+        consulta que não é um NotificationEvent.
         """
         connection = self._require_connection(user)
         with TelegramClient(settings.TELEGRAM_BOT_TOKEN) as client:
@@ -210,20 +226,3 @@ class DailySummaryService:
 
     def send_summary(self, user) -> None:
         self._telegram_service.send_text(user, self.build_message(user))
-
-
-def _format_task_created_message(task: Task) -> str:
-    lines = ["🆕 Nova tarefa", "", "Título:", task.title]
-    lines += ["", "Prazo:", task.due_date.strftime("%d/%m/%Y")]
-    if task.category:
-        lines += ["", "Categoria:", task.category.name]
-    return "\n".join(lines)
-
-
-def _format_task_completed_message(task: Task) -> str:
-    return f"✅ Tarefa concluída\n\nTítulo:\n{task.title}"
-
-
-def _format_task_overdue_message(task: Task) -> str:
-    lines = ["⚠️ Tarefa vencida", "", "Título:", task.title, "", "Prazo:", task.due_date.strftime("%d/%m/%Y")]
-    return "\n".join(lines)

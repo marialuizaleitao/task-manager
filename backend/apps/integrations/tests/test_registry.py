@@ -10,13 +10,7 @@ class FakeNotificationProvider:
     def is_connected(self, user):
         return True
 
-    def notify_task_created(self, task):
-        pass
-
-    def notify_task_completed(self, task):
-        pass
-
-    def notify_task_overdue(self, task):
+    def notify(self, event):
         pass
 
 
