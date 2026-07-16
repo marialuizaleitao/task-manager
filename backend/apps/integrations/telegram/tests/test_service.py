@@ -214,20 +214,22 @@ class TestConnectionManagement:
 
 
 class TestDailySummaryService:
-    def test_build_message_lists_tasks_due_today_and_overdue_count(self, user, task_factory):
-        today = timezone.localdate()
-        task_factory(title="Revisar PR", due_date=today, completed=False)
-        task_factory(title="Atrasada", due_date=today - timedelta(days=2), completed=False)
-
-        message = DailySummaryService().build_message(user)
-
-        assert "Revisar PR" in message
-        assert "Tarefas vencidas: 1" in message
-
     def test_build_message_without_pending_tasks(self, user):
         message = DailySummaryService().build_message(user)
 
-        assert "Nenhuma tarefa pendente" in message
+        assert "não tem nenhuma tarefa pendente" in message.lower()
+
+    def test_build_message_counts_pending_due_today_and_overdue(self, user, task_factory):
+        today = timezone.localdate()
+        task_factory(title="Revisar PR", due_date=today, completed=False)
+        task_factory(title="Atrasada", due_date=today - timedelta(days=2), completed=False)
+        task_factory(title="Sem prazo", due_date=None, completed=False)
+
+        message = DailySummaryService().build_message(user)
+
+        assert "3 tarefa(s) pendente(s)" in message
+        assert "1 tarefa(s) vencendo hoje" in message
+        assert "1 tarefa(s) atrasada(s)" in message
 
     def test_build_message_ignores_completed_tasks(self, user, task_factory):
         today = timezone.localdate()
@@ -235,7 +237,7 @@ class TestDailySummaryService:
 
         message = DailySummaryService().build_message(user)
 
-        assert "Já feita" not in message
+        assert "não tem nenhuma tarefa pendente" in message.lower()
 
     def test_send_summary_delegates_to_telegram_service(self, user):
         telegram_service = MagicMock()

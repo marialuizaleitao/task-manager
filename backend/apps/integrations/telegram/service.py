@@ -201,27 +201,26 @@ class DailySummaryService:
 
     def build_message(self, user) -> str:
         today = timezone.localdate()
-        due_today = list(
-            Task.objects.filter(owner=user, due_date=today, completed=False).order_by("title")
-        )
-        overdue_count = Task.objects.filter(
-            owner=user, due_date__lt=today, completed=False
-        ).count()
+        pending_qs = Task.objects.filter(owner=user, completed=False)
+        pending_count = pending_qs.count()
 
-        if not due_today and not overdue_count:
-            return "📋 Resumo do dia\n\nNenhuma tarefa pendente para hoje."
+        if not pending_count:
+            return "Bom dia!\n\nVocê não tem nenhuma tarefa pendente. Aproveite o dia!"
 
-        lines = ["📋 Resumo do dia"]
+        due_today_count = pending_qs.filter(due_date=today).count()
+        overdue_count = pending_qs.filter(due_date__lt=today).count()
 
-        if due_today:
-            lines.append("")
-            lines.append(f"Tarefas de hoje ({len(due_today)}):")
-            lines.extend(f"- {task.title}" for task in due_today)
-
-        if overdue_count:
-            lines.append("")
-            lines.append(f"Tarefas vencidas: {overdue_count}")
-
+        lines = [
+            "Bom dia!",
+            "",
+            "Hoje você possui:",
+            "",
+            f"• {pending_count} tarefa(s) pendente(s)",
+            f"• {due_today_count} tarefa(s) vencendo hoje",
+            f"• {overdue_count} tarefa(s) atrasada(s)",
+            "",
+            "Tenha um ótimo dia!",
+        ]
         return "\n".join(lines)
 
     def send_summary(self, user) -> None:
