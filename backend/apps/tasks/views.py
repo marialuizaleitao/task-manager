@@ -5,6 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 
+from apps.integrations import sync as calendar_sync
 from apps.sharing.models import TaskShare
 from apps.sharing.permissions import TaskAccessPermission
 from apps.sharing.serializers import TaskShareSerializer
@@ -52,7 +53,19 @@ class TaskViewSet(viewsets.ModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
+        task = serializer.save(owner=self.request.user)
+        calendar_sync.sync_task(task, calendar_sync.CREATE)
+
+    def perform_update(self, serializer):
+        task = serializer.save()
+        calendar_sync.sync_task(task, calendar_sync.UPDATE)
+
+    def perform_destroy(self, instance):
+        # Sincroniza antes do delete: o provedor precisa do vínculo
+        # tarefa/evento (GoogleCalendarEventLink), removido em cascata assim
+        # que a Task deixa de existir.
+        calendar_sync.sync_task(instance, calendar_sync.DELETE)
+        instance.delete()
 
     @action(detail=True, methods=["get", "post"], url_path="shares")
     def shares(self, request, pk=None):

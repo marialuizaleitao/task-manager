@@ -10,4 +10,8 @@ urlpatterns = [
     path("api/", include("apps.categories.urls", namespace="categories")),
     path("api/", include("apps.tasks.urls", namespace="tasks")),
     path("api/", include("apps.sharing.urls", namespace="sharing")),
+    path(
+        "api/integrations/",
+        include("apps.integrations.google_calendar.urls", namespace="google_calendar"),
+    ),
 ]

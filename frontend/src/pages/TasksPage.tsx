@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { GoogleCalendarPanel } from '../components/GoogleCalendarPanel'
 import { TaskForm } from '../components/TaskForm'
 import { TaskList } from '../components/TaskList'
 import * as categoriesService from '../services/categories'
@@ -140,6 +141,8 @@ export function TasksPage() {
         <Link to="/">Voltar</Link>
       </p>
       <h1>Tarefas</h1>
+
+      <GoogleCalendarPanel />
 
       <TaskForm
         key={editingTask?.id ?? 'new'}
