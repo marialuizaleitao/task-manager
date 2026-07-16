@@ -14,22 +14,24 @@ comunicação mais ampla: notify() é o único ponto de entrada de qualquer
 evento do sistema (ver interfaces.NotificationEvent), e o catálogo em
 messages.py decide como cada um vira texto.
 
-DailySummaryService vive neste mesmo arquivo (não em um módulo próprio): é
-outro consumidor de TelegramService, sem estado ou contrato de Protocol
-próprio, então um novo arquivo só para ele não teria uma responsabilidade
-distinta o bastante para justificar a divisão (ver CLAUDE.md, "antes de
-criar um novo arquivo, verifique se a responsabilidade pode ser atendida
-por um arquivo existente").
+DailySummaryService e WeeklySummaryService vivem neste mesmo arquivo (não
+em um módulo próprio): são outros consumidores de TelegramService, sem
+estado ou contrato de Protocol próprio, então um novo arquivo só para eles
+não teria uma responsabilidade distinta o bastante para justificar a
+divisão (ver CLAUDE.md, "antes de criar um novo arquivo, verifique se a
+responsabilidade pode ser atendida por um arquivo existente").
 """
 from __future__ import annotations
 
 import secrets
+from datetime import timedelta
 
 from django.conf import settings
 from django.utils import timezone
 
 from apps.integrations.exceptions import ProviderNotConfiguredError
 from apps.integrations.interfaces import NotificationEvent
+from apps.sharing.models import TaskShare
 from apps.tasks.models import Task
 
 from . import messages
@@ -67,8 +69,8 @@ class TelegramService:
 
         Público (diferente de notify(), que só existe para satisfazer o
         Protocol NotificationProvider) porque também é usado por
-        DailySummaryService, que monta sua própria mensagem a partir de uma
-        consulta que não é um NotificationEvent.
+        DailySummaryService e WeeklySummaryService, que montam sua própria
+        mensagem a partir de uma consulta que não é um NotificationEvent.
         """
         connection = self._require_connection(user)
         with TelegramClient(settings.TELEGRAM_BOT_TOKEN) as client:
@@ -220,6 +222,53 @@ class DailySummaryService:
             f"• {overdue_count} tarefa(s) atrasada(s)",
             "",
             "Tenha um ótimo dia!",
+        ]
+        return "\n".join(lines)
+
+    def send_summary(self, user) -> None:
+        self._telegram_service.send_text(user, self.build_message(user))
+
+
+class WeeklySummaryService:
+    """Monta e envia o resumo semanal de atividade de um usuário.
+
+    Mesma decisão de escopo de DailySummaryService: apenas o serviço nesta
+    sprint, sem disparo automático (ver README, "Performance"). "Concluídas"
+    usa updated_at como aproximação de quando a tarefa foi concluída — Task
+    não tem um campo completed_at dedicado, e adicioná-lo exigiria uma
+    migration fora do escopo deste refinamento (ver README, "Limitações").
+    """
+
+    _WINDOW_DAYS = 7
+
+    def __init__(self, telegram_service: TelegramService | None = None) -> None:
+        self._telegram_service = telegram_service or TelegramService()
+
+    def build_message(self, user) -> str:
+        today = timezone.localdate()
+        week_start = today - timedelta(days=self._WINDOW_DAYS)
+
+        created = Task.objects.filter(owner=user, created_at__date__gte=week_start).count()
+        completed = Task.objects.filter(
+            owner=user, completed=True, updated_at__date__gte=week_start
+        ).count()
+        shared = TaskShare.objects.filter(task__owner=user, created_at__date__gte=week_start).count()
+        overdue = Task.objects.filter(owner=user, due_date__lt=today, completed=False).count()
+
+        lines = [
+            "Resumo da semana",
+            "",
+            "Criadas:",
+            str(created),
+            "",
+            "Concluídas:",
+            str(completed),
+            "",
+            "Compartilhadas:",
+            str(shared),
+            "",
+            "Atrasadas:",
+            str(overdue),
         ]
         return "\n".join(lines)
 

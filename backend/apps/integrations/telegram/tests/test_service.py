@@ -9,7 +9,9 @@ from apps.integrations.interfaces import NotificationEvent
 from apps.integrations.telegram import service as service_module
 from apps.integrations.telegram.client import ChatUnreachableError
 from apps.integrations.telegram.models import TelegramConnection
-from apps.integrations.telegram.service import DailySummaryService, TelegramService
+from apps.sharing.models import TaskShare
+from apps.tasks.models import Task
+from apps.integrations.telegram.service import DailySummaryService, TelegramService, WeeklySummaryService
 
 
 @pytest.fixture
@@ -248,3 +250,55 @@ class TestDailySummaryService:
         called_user, called_text = telegram_service.send_text.call_args[0]
         assert called_user == user
         assert isinstance(called_text, str)
+
+
+class TestWeeklySummaryService:
+    def test_build_message_counts_created_this_week(self, user, task_factory):
+        task_factory(title="Nova 1")
+        task_factory(title="Nova 2")
+
+        message = WeeklySummaryService().build_message(user)
+
+        assert "Criadas:\n2" in message
+
+    def test_build_message_excludes_tasks_created_before_the_window(self, user, task_factory):
+        old_task = task_factory(title="Antiga")
+        Task.objects.filter(pk=old_task.pk).update(created_at=timezone.now() - timedelta(days=10))
+
+        message = WeeklySummaryService().build_message(user)
+
+        assert "Criadas:\n0" in message
+
+    def test_build_message_counts_completed_this_week(self, user, task_factory):
+        task_factory(title="Feita", completed=True)
+
+        message = WeeklySummaryService().build_message(user)
+
+        assert "Concluídas:\n1" in message
+
+    def test_build_message_counts_shared_this_week(self, user, task_factory, another_user):
+        task = task_factory(title="Compartilhada", owner=user)
+        TaskShare.objects.create(task=task, shared_with=another_user, permission="read")
+
+        message = WeeklySummaryService().build_message(user)
+
+        assert "Compartilhadas:\n1" in message
+
+    def test_build_message_counts_overdue(self, user, task_factory):
+        today = timezone.localdate()
+        task_factory(title="Vencida", due_date=today - timedelta(days=3), completed=False)
+
+        message = WeeklySummaryService().build_message(user)
+
+        assert "Atrasadas:\n1" in message
+
+    def test_send_summary_delegates_to_telegram_service(self, user):
+        telegram_service = MagicMock()
+
+        WeeklySummaryService(telegram_service=telegram_service).send_summary(user)
+
+        telegram_service.send_text.assert_called_once()
+        called_user, called_text = telegram_service.send_text.call_args[0]
+        assert called_user == user
+        assert isinstance(called_text, str)
+
