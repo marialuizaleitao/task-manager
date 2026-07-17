@@ -2,7 +2,7 @@
 
 Aplicação web de gerenciamento de tarefas (To-Do List), desenvolvida como case técnico para demonstrar práticas profissionais de engenharia de software: arquitetura em camadas, containerização, testes automatizados e CI/CD.
 
-> **Status atual:** Sprint 7.1 concluída — autenticação (JWT), categorias, CRUD de tarefas, compartilhamento, busca/filtros/ordenação avançados, integração com o Google Calendar e um canal oficial de comunicação do sistema (Telegram como primeiro provedor) funcionais no backend e no frontend.
+> **Status atual:** Sprint 8 concluída — ambiente de produção pronto para deploy na AWS (Docker Compose com Nginx como gateway único, HTTPS via Let's Encrypt/Certbot, hardening de segurança e performance), além de tudo entregue nas sprints anteriores: autenticação (JWT), categorias, CRUD de tarefas, compartilhamento, busca/filtros/ordenação avançados, integração com o Google Calendar e um canal oficial de comunicação do sistema (Telegram como primeiro provedor).
 
 ## Tecnologias
 
@@ -24,7 +24,10 @@ Aplicação web de gerenciamento de tarefas (To-Do List), desenvolvida como case
 
 **Infraestrutura**
 - Docker + Docker Compose
-- Nginx (servindo o build de produção do frontend)
+- Nginx (gateway único em produção: TLS termination, SPA, proxy para a API)
+- Let's Encrypt / Certbot (HTTPS, renovação automática)
+- AWS EC2 (Free Tier), Elastic IP, Security Groups, IAM
+- Gunicorn (servidor WSGI de produção)
 
 ## Arquitetura
 
@@ -116,6 +119,35 @@ A Sprint 7 introduziu o Telegram como um "sistema de notificações de tarefa". 
 - **`DailySummaryService`** foi reformulado: a mensagem trocou a listagem de títulos de tarefas por três contadores (pendentes, vencendo hoje, atrasadas) com um tom mais direto ("Bom dia! Hoje você possui: ..."). Continua sem nenhum disparo automático — não há scheduler nesta sprint (ver "Performance").
 - **`WeeklySummaryService`** (novo): monta um resumo semanal (criadas, concluídas, compartilhadas, atrasadas) via `build_message(user)`, e `send_summary(user)` apenas o envia — exatamente o mesmo padrão de `DailySummaryService`, incluindo a injeção de `telegram_service` para testes. **Apenas o serviço foi criado nesta sprint; não há disparo automático**, por decisão explícita de escopo. "Concluídas" usa `updated_at` como aproximação de quando a tarefa foi concluída — `Task` não tem um campo `completed_at` dedicado, e adicioná-lo exigiria uma migration fora do escopo deste refinamento (ver "Limitações conhecidas").
 
+### Arquitetura de produção (Sprint 8)
+
+```
+Internet → Elastic IP → Nginx (80/443, TLS termination)
+                          ├── /            → build estático do React
+                          ├── /static/     → estáticos do Django (admin)
+                          ├── /api/        → proxy → Gunicorn
+                          └── /admin/      → proxy → Gunicorn
+Gunicorn (backend) → PostgreSQL (container na rede interna, sem porta pública)
+Gunicorn (backend) → Google Calendar API / Telegram Bot API
+Certbot → renova o certificado Let's Encrypt automaticamente
+```
+
+Tudo roda em uma única instância EC2 (t3.micro, Free Tier), orquestrado por `docker-compose.prod.yml`. Guia completo, do zero, em [`docs/deploy-aws.md`](docs/deploy-aws.md).
+
+**Um único gateway Nginx, não dois processos separados:** antes da Sprint 8, o container `frontend` era um Nginx sem nenhum conhecimento do backend (só servia a SPA), e o backend expunha a porta 8000 diretamente. Consolidar em um único Nginx que também faz proxy de `/api/` e `/admin/` elimina CORS em produção (frontend e API passam a ser a mesma origem do ponto de vista do navegador) e remove a necessidade de expor o Gunicorn publicamente — o backend só é alcançável pela rede interna do Docker.
+
+**PostgreSQL em Docker Compose na própria EC2, não Amazon RDS:** o Free Tier de RDS mudou em julho de 2025 — contas novas não têm mais cobertura gratuita de RDS Postgres tradicional (só Aurora Serverless por ~6 meses); contas legadas mantêm 750h/mês de `db.t3.micro`, mas isso não é garantido para quem for reproduzir este projeto. Rodar Postgres no mesmo Compose elimina essa incerteza de custo, mantém paridade total com o ambiente de desenvolvimento (mesma imagem `postgres:18-alpine`) e reproduz com um único `docker compose up`. Para este porte de projeto — um case técnico de instância única — o ganho de um banco gerenciado (backups automáticos, failover) não compensa o custo e a complexidade adicional de provisionar e documentar um segundo serviço AWS.
+
+**DuckDNS em vez de Route 53:** Let's Encrypt não emite certificado para IP puro — é necessário um hostname. Route 53 custa ~US$0,50/mês por zona hospedada mais o custo do domínio em si; sem domínio próprio hoje, um subdomínio gratuito do DuckDNS resolve o mesmo problema sem custo recorrente. Trocar para um domínio próprio no futuro é só apontar o registro A e ajustar `DOMAIN_NAME` — nenhuma outra mudança de arquitetura.
+
+**Certbot via serviço do próprio Compose, não `nginx-proxy` + `acme-companion`:** o projeto já teria essa automação pronta com ferramentas de terceiros, mas ao custo de menos controle explícito sobre a configuração do Nginx — o serviço `certbot` do `docker-compose.prod.yml` roda em loop, verificando a cada 12h se o certificado precisa renovar, sem esconder nenhum passo do processo.
+
+**Gunicorn tunado para uma instância t3.micro (1 vCPU / 1 GiB RAM):** `GUNICORN_WORKERS=2` (a fórmula usual `2 * vCPU + 1` competiria demais por memória com Postgres e Nginx nesse porte de instância), `--timeout 30s` (folga acima do timeout de 10s configurado para as chamadas ao Google/Telegram) e `--keep-alive 5s`. Sem Redis nesta sprint — nenhum cache HTTP adicional foi introduzido; os únicos caches de resposta são os `Cache-Control` do Nginx para assets estáticos (ver abaixo), já que respostas da API são sempre dinâmicas/autenticadas e não deveriam ser cacheadas.
+
+**Segurança:** `SECURE_PROXY_SSL_HEADER` (`config/settings/prod.py`) informa ao Django que a requisição chegou em HTTPS mesmo vindo do Nginx em HTTP puro internamente — sem isso, `SECURE_SSL_REDIRECT` entraria em loop de redirecionamento. HSTS (1 ano, sem preload — entrar na lista de preload dos navegadores é difícil de reverter), `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` e `Referrer-Policy` são aplicados tanto pelo Django quanto pelo Nginx (defesa em profundidade). `CSRF_TRUSTED_ORIGINS` passou a ser explícito, necessário para o login do `/admin/` funcionar sobre HTTPS.
+
+**Logs:** logs de aplicação (`gunicorn-access.log`/`gunicorn-error.log`, volume `backend_logs`) ficam separados dos logs do Nginx (volume `nginx_logs`) — nenhuma ferramenta de observabilidade (Prometheus, Grafana) foi introduzida nesta sprint, por estar fora do escopo definido (ver Roadmap, Sprint 9); a separação em volumes próprios já deixa a estrutura pronta para um agente de coleta ser plugado no futuro sem reorganizar nada.
+
 ## Estrutura de diretórios
 
 ```
@@ -160,10 +192,13 @@ task-manager/
 │   └── Dockerfile
 ├── docker/
 │   └── nginx/
-│       └── nginx.conf
+│       └── nginx.conf.template   # gateway de produção (envsubst em $DOMAIN_NAME)
+├── docs/
+│   └── deploy-aws.md        # guia completo de deploy na AWS, do zero
 ├── docker-compose.yml
 ├── docker-compose.prod.yml
-├── .env.example
+├── .env.example              # desenvolvimento
+├── .env.prod.example         # produção
 └── README.md
 ```
 
@@ -179,10 +214,12 @@ Commits seguem [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## Variáveis de ambiente
 
-Copie `.env.example` para `.env` antes de subir o projeto:
+Desenvolvimento usa `.env.example`; produção usa `.env.prod.example` (valores adicionais/diferentes documentados em cada seção do arquivo). Copie o arquivo correspondente para `.env` antes de subir o projeto:
 
 ```bash
-cp .env.example .env
+cp .env.example .env          # desenvolvimento
+# ou
+cp .env.prod.example .env     # produção (ver docs/deploy-aws.md)
 ```
 
 | Variável | Descrição |
@@ -191,10 +228,14 @@ cp .env.example .env
 | `DJANGO_SECRET_KEY` | Chave secreta do Django |
 | `DJANGO_DEBUG` | Ativa/desativa modo debug |
 | `DJANGO_ALLOWED_HOSTS` | Hosts permitidos, separados por vírgula |
-| `CORS_ALLOWED_ORIGINS` | Origens permitidas para requisições CORS |
+| `DOMAIN_NAME` | *(produção)* domínio público, interpolado no template do Nginx |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | *(produção)* origens confiáveis para CSRF (ex. `https://seu-dominio`) |
+| `DJANGO_SECURE_SSL_REDIRECT` / `DJANGO_SECURE_HSTS_SECONDS` | *(produção)* redirect HTTPS e duração do HSTS |
+| `CORS_ALLOWED_ORIGINS` | Origens permitidas para requisições CORS (vazio em produção — mesma origem via proxy) |
 | `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | Credenciais do banco |
 | `POSTGRES_HOST` / `POSTGRES_PORT` | Endereço do banco |
-| `VITE_API_URL` | URL base da API consumida pelo frontend |
+| `VITE_API_URL` | URL base da API consumida pelo frontend (`/api` em produção, embutido no build) |
+| `GUNICORN_WORKERS` / `GUNICORN_TIMEOUT` / `GUNICORN_KEEPALIVE` | *(produção)* tuning do Gunicorn |
 | `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | Credenciais do OAuth Client do Google Cloud |
 | `GOOGLE_OAUTH_REDIRECT_URI` | URL de callback do backend, cadastrada no Google Cloud |
 | `GOOGLE_TOKEN_ENCRYPTION_KEY` | Chave Fernet para cifrar tokens OAuth em repouso |
@@ -218,11 +259,16 @@ docker compose exec backend python manage.py migrate
 - Backend: http://localhost:8000/api/health/
 - Frontend: http://localhost:5173
 
-Para o ambiente de produção (build otimizado do frontend servido via Nginx, backend via Gunicorn):
+## Deploy em produção (AWS)
+
+Guia completo, do zero (conta AWS, EC2, HTTPS, deploy e rollback), em [`docs/deploy-aws.md`](docs/deploy-aws.md). Localmente, a stack de produção pode ser exercitada com:
 
 ```bash
+cp .env.prod.example .env   # ajuste os valores antes
 docker compose -f docker-compose.prod.yml up --build
 ```
+
+O container `backend` aplica `migrate` e `collectstatic` automaticamente no start (`backend/docker-entrypoint.prod.sh`) — não é necessário rodá-los manualmente a cada subida.
 
 ## Configurar o Google Cloud (integração com o Google Calendar)
 
@@ -413,8 +459,10 @@ Nenhum teste chama o Google ou o Telegram de verdade. `apps.integrations.google_
 | 5 | Busca, filtros avançados, ordenação e paginação | Concluído |
 | 6 | Integração com o Google Calendar (OAuth2, sincronização de eventos) | Concluído |
 | 7 | Integração com o Telegram Bot API (notificações) | Concluído |
-| 8 | Deploy completo na AWS (Free Tier) | Pendente |
+| 8 | Deploy completo na AWS (Free Tier) | Concluído |
 | 9 | CI/CD (GitHub Actions, Selenium, releases) | Pendente |
 | 10 | Auditoria arquitetural final, documentação definitiva e release v1.0.0 | Pendente |
 
 > A Sprint 7.1 foi um refinamento arquitetural sobre o escopo já entregue na Sprint 7 (generalização do canal de comunicação, novos eventos de compartilhamento e sincronização, resumo semanal) — não altera a numeração nem o status das sprints acima.
+
+> A Sprint 8 entrega toda a infraestrutura e documentação necessárias para publicar o projeto — Docker, Nginx, HTTPS, hardening e o guia completo em `docs/deploy-aws.md`. A execução prática na AWS (provisionar a EC2, seguir o guia) é feita por quem está avaliando o projeto, já que não há credenciais de nuvem compartilhadas nesta sessão.
