@@ -2,7 +2,7 @@
 
 Aplicação web de gerenciamento de tarefas (To-Do List), desenvolvida como case técnico para demonstrar práticas profissionais de engenharia de software: arquitetura em camadas, containerização, testes automatizados e CI/CD.
 
-> **Status atual:** Sprint 8 concluída — ambiente de produção pronto para deploy na AWS (Docker Compose com Nginx como gateway único, HTTPS via Let's Encrypt/Certbot, hardening de segurança e performance), além de tudo entregue nas sprints anteriores: autenticação (JWT), categorias, CRUD de tarefas, compartilhamento, busca/filtros/ordenação avançados, integração com o Google Calendar e um canal oficial de comunicação do sistema (Telegram como primeiro provedor).
+> **Status atual:** Sprint 9 concluída — pipeline de integração contínua no GitHub Actions (testes com cobertura, lint e build de frontend, suíte Selenium end-to-end, validação de Docker), Dependabot, publicação automática de imagens no GitHub Container Registry e preparação para Releases e Deployments, além de tudo entregue nas sprints anteriores: autenticação (JWT), categorias, CRUD de tarefas, compartilhamento, busca/filtros/ordenação avançados, integração com o Google Calendar, canal de comunicação via Telegram e deploy em produção na AWS.
 
 ## Tecnologias
 
@@ -28,6 +28,8 @@ Aplicação web de gerenciamento de tarefas (To-Do List), desenvolvida como case
 - Let's Encrypt / Certbot (HTTPS, renovação automática)
 - AWS EC2 (Free Tier), Elastic IP, Security Groups, IAM
 - Gunicorn (servidor WSGI de produção)
+- GitHub Actions (CI/CD), GitHub Container Registry (imagens versionadas), Dependabot
+- Selenium (testes end-to-end), pytest-cov (cobertura)
 
 ## Arquitetura
 
@@ -148,10 +150,69 @@ Tudo roda em uma única instância EC2 (t3.micro, Free Tier), orquestrado por `d
 
 **Logs:** logs de aplicação (`gunicorn-access.log`/`gunicorn-error.log`, volume `backend_logs`) ficam separados dos logs do Nginx (volume `nginx_logs`) — nenhuma ferramenta de observabilidade (Prometheus, Grafana) foi introduzida nesta sprint, por estar fora do escopo definido (ver Roadmap, Sprint 9); a separação em volumes próprios já deixa a estrutura pronta para um agente de coleta ser plugado no futuro sem reorganizar nada.
 
+## Integração contínua e entrega (Sprint 9)
+
+Todo Pull Request para `develop` ou `master` roda automaticamente o workflow `.github/workflows/ci.yml`, com quatro jobs independentes (falha em qualquer um bloqueia o merge, se a branch protection estiver configurada — ver abaixo):
+
+- **`backend`**: sobe um Postgres via service container, instala as dependências de `backend/requirements/dev.txt`, roda `manage.py check`, `makemigrations --check --dry-run`, e a suíte `pytest` com cobertura (`pytest-cov`), gerando um relatório XML publicado como artefato e enviado ao Codecov de forma best-effort (não derruba o pipeline se o token não estiver configurado). Falha se a cobertura cair abaixo de 95%.
+- **`frontend`**: instala as dependências com `npm ci`, roda `npm run lint` (oxlint) e `npm run build`.
+- **`e2e`**: depende dos dois anteriores. Sobe um segundo Postgres, aplica as migrations, inicia o backend (`manage.py runserver`) e o frontend buildado (`vite preview`) como processos em background, espera os dois responderem e roda a suíte Selenium (`e2e/`) contra Chrome headless.
+- **`docker`**: builda as quatro imagens (backend e frontend, alvos `dev` e `prod`) sem publicar, e valida a sintaxe dos dois `docker-compose` (`config -q`) usando os arquivos `.env.example`/`.env.prod.example`.
+
+### Como interpretar o status do pipeline
+
+Cada job aparece individualmente na aba **Checks** do Pull Request. Um X vermelho em `backend` quase sempre é teste ou migration faltando; em `frontend`, lint ou erro de tipo; em `e2e`, alguma regressão visível na integração entre frontend e backend (o job sobe os logs de backend/frontend como artefato quando falha); em `docker`, algo que quebra o build da imagem. Nenhum PR deveria ser mesclado com qualquer check vermelho.
+
+### Publicação de imagens (CD)
+
+`.github/workflows/publish.yml` builda e publica `backend` e `frontend` (alvo `prod`) no GitHub Container Registry a cada push em `master` e a cada tag `v*.*.*`, com as tags `latest` (só na branch padrão), `sha-<curto>` (sempre) e a própria tag de release (quando aplicável). Não roda em Pull Request — só depois que o código já foi revisado e mesclado.
+
+### Dependabot
+
+`.github/dependabot.yml` verifica semanalmente atualizações de `pip` (backend), `npm` (frontend) e `github-actions`, abrindo PRs contra `develop` — que passam pelo mesmo pipeline de CI que qualquer outra mudança.
+
+### Releases (preparado, não utilizado ainda)
+
+`CHANGELOG.md` segue o formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o projeto adota [Versionamento Semântico](https://semver.org/lang/pt-BR/). `.github/workflows/release.yml` só roda via disparo manual (`workflow_dispatch`): valida o formato da versão, confirma que existe a seção correspondente no `CHANGELOG.md`, cria a tag e a Release no GitHub a partir dela. Nenhuma Release foi criada ainda — o workflow existe pronto para quando fizer sentido usá-lo (Sprint 10 em diante).
+
+### Deployments e Environments
+
+`.github/workflows/deploy.yml` também só roda via disparo manual e não executa nenhum deploy de verdade — existe apenas para que o GitHub reconheça os Environments `development` e `production` e passe a rastrear deployments na aba correspondente do repositório. O deploy continua manual, seguindo [`docs/deploy-aws.md`](docs/deploy-aws.md).
+
+Antes de usar os Environments de verdade, crie-os em **Settings → Environments** e cadastre os secrets abaixo (nunca em texto plano no repositório):
+
+| Secret | Uso |
+|---|---|
+| `DJANGO_SECRET_KEY` | Chave secreta do Django em produção |
+| `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | Credenciais do banco de produção |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Credenciais OAuth do Google Cloud |
+| `GOOGLE_TOKEN_ENCRYPTION_KEY` | Chave Fernet para os tokens OAuth |
+| `TELEGRAM_BOT_TOKEN` | Token do bot Telegram |
+| `DUCKDNS_TOKEN` | Token da conta DuckDNS, caso a atualização de DNS venha a ser automatizada |
+| `CODECOV_TOKEN` | Opcional — só necessário se o repositório for privado |
+
+### Branch protection recomendada
+
+Não configurada nesta sprint (mudança de configuração do repositório, não de código) — só documentada aqui. Em **Settings → Branches**, para `develop` e `master`:
+
+- Require a pull request before merging
+- Require status checks to pass before merging (os quatro jobs de `ci.yml`)
+- Require conversation resolution before merging
+- Require linear history
+- Do not allow bypassing the above settings
+
 ## Estrutura de diretórios
 
 ```
 task-manager/
+├── .github/
+│   ├── workflows/
+│   │   ├── ci.yml           # testes, lint, build, Selenium, validação Docker
+│   │   ├── publish.yml      # publica imagens no GitHub Container Registry
+│   │   ├── release.yml      # manual: tag + Release a partir do CHANGELOG
+│   │   └── deploy.yml       # manual: registra os Environments no GitHub
+│   └── dependabot.yml
+├── e2e/                      # suíte Selenium (fora de backend/, outro runtime)
 ├── backend/
 │   ├── apps/
 │   │   ├── accounts/       # Custom User, JWT, registro, login, /me
@@ -197,8 +258,10 @@ task-manager/
 │   └── deploy-aws.md        # guia completo de deploy na AWS, do zero
 ├── docker-compose.yml
 ├── docker-compose.prod.yml
+├── .dockerignore
 ├── .env.example              # desenvolvimento
 ├── .env.prod.example         # produção
+├── CHANGELOG.md
 └── README.md
 ```
 
@@ -208,7 +271,7 @@ task-manager/
 master → develop → feature/*
 ```
 
-Nenhum commit é feito diretamente em `master`. Funcionalidades são desenvolvidas em branches `feature/*`, `fix/*`, `refactor/*`, `docs/*` ou `test/*`, com Pull Request para `develop`. Merges de `develop` para `master` ocorrem apenas após um conjunto estável e testado de funcionalidades.
+Nenhum commit é feito diretamente em `master`. Funcionalidades são desenvolvidas em branches `feature/*`, `fix/*`, `refactor/*`, `docs/*` ou `test/*`, com Pull Request para `develop`. Merges de `develop` para `master` ocorrem apenas após um conjunto estável e testado de funcionalidades. Desde a Sprint 9, todo Pull Request para `develop` ou `master` passa obrigatoriamente pelo pipeline de CI (ver "Integração contínua e entrega" abaixo) antes de poder ser mesclado — desde que a branch protection recomendada seja ativada nas configurações do repositório.
 
 Commits seguem [Conventional Commits](https://www.conventionalcommits.org/).
 
@@ -445,6 +508,19 @@ Enviar documentação
 docker compose exec backend pytest -v
 ```
 
+Cobertura medida com `pytest-cov` (`.coveragerc`), instrumentada na Sprint 9: **98%** sobre `apps/` e `config/` (migrations, testes e os módulos de settings de dev/prod, não exercitados pelo settings de teste, ficam de fora da medição por não serem testáveis dessa forma — validados via `manage.py check --deploy` e pelo build Docker). O pipeline de CI falha se a cobertura cair abaixo de 95%.
+
+```bash
+docker compose exec backend pytest --cov=apps --cov=config --cov-report=term-missing
+```
+
+Além da suíte de unidade do Django, `e2e/` contém uma suíte Selenium (registro, login, ciclo de vida de uma tarefa) que dirige um navegador real contra o frontend buildado e o backend rodando de verdade — ver "Integração contínua e entrega" acima para como ela roda no pipeline. Para rodar localmente, com backend e frontend já de pé (`docker compose up`, portas 8000 e 5173):
+
+```bash
+pip install -r e2e/requirements.txt
+E2E_BASE_URL=http://localhost:5173 pytest e2e -v
+```
+
 Nenhum teste chama o Google ou o Telegram de verdade. `apps.integrations.google_calendar.tests` cobre OAuth (troca de código, refresh, `invalid_grant`, timeout, erro HTTP, resposta inválida), o cliente da Calendar API (criação/atualização/exclusão de evento, 401, 5xx, timeout), o `service` (best-effort, refresh automático de token, transições ao adicionar/remover `due_date`, e — desde a Sprint 7.1 — o disparo de `calendar.sync_succeeded`/`calendar.sync_failed` via um dublê de `notifications.notify`) e as views (connect/callback/status/toggle/disconnect). `apps.integrations.telegram.tests` cobre o `TelegramClient` (`getMe`, `sendMessage`, `getUpdates`, 401, chat bloqueado/inexistente, timeout, erro de rede, JSON inválido), o `TelegramService.notify()` para cada evento do catálogo (`task.created/completed/overdue/shared/shared_updated`, `calendar.sync_succeeded/failed`, evento desconhecido), `DailySummaryService` e `WeeklySummaryService` — com a mesma estratégia de `monkeypatch` sobre a classe `TelegramClient`, nenhuma chamada HTTP real. `apps.integrations.tests` cobre `crypto.py`, `registry.py` (os dois registries independentes) e `sync.py`/`notifications.py` isoladamente, com provedores dublês (`MagicMock`) — incluindo os novos `notify_task_shared`/`notify_task_shared_updated`. `apps/tasks/tests/test_google_calendar_sync.py`, `apps/tasks/tests/test_telegram_notifications.py` e `apps/tasks/tests/test_sharing_notifications.py` verificam que `TaskViewSet` aciona `sync_task`/`notify_task`/`notify_task_shared`/`notify_task_shared_updated` nos pontos certos, sem testar os provedores em si.
 
 ## Roadmap
@@ -460,9 +536,11 @@ Nenhum teste chama o Google ou o Telegram de verdade. `apps.integrations.google_
 | 6 | Integração com o Google Calendar (OAuth2, sincronização de eventos) | Concluído |
 | 7 | Integração com o Telegram Bot API (notificações) | Concluído |
 | 8 | Deploy completo na AWS (Free Tier) | Concluído |
-| 9 | CI/CD (GitHub Actions, Selenium, releases) | Pendente |
+| 9 | CI/CD (GitHub Actions, Selenium, releases) | Concluído |
 | 10 | Auditoria arquitetural final, documentação definitiva e release v1.0.0 | Pendente |
 
 > A Sprint 7.1 foi um refinamento arquitetural sobre o escopo já entregue na Sprint 7 (generalização do canal de comunicação, novos eventos de compartilhamento e sincronização, resumo semanal) — não altera a numeração nem o status das sprints acima.
 
 > A Sprint 8 entrega toda a infraestrutura e documentação necessárias para publicar o projeto — Docker, Nginx, HTTPS, hardening e o guia completo em `docs/deploy-aws.md`. A execução prática na AWS (provisionar a EC2, seguir o guia) é feita por quem está avaliando o projeto, já que não há credenciais de nuvem compartilhadas nesta sessão.
+
+> A Sprint 9 não adiciona nenhuma funcionalidade — o pipeline de CI (`.github/workflows/ci.yml`) roda em todo Pull Request para `develop`/`master`; a publicação de imagens (`publish.yml`) e o registro dos Environments (`deploy.yml`) rodam fora do PR; e `release.yml` só executa manualmente, quando alguém decidir cortar a primeira versão. Nenhuma Release foi criada, nenhum deploy automático foi implementado, e a branch protection recomendada está documentada acima, não aplicada — todas decisões deliberadas de escopo.
