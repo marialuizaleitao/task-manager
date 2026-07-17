@@ -21,23 +21,60 @@ services:
       dockerfile: backend/Dockerfile
       target: prod
     env_file: .env
-    ports:
-      - "8000:8000"
+    # Sem porta publicada: só é alcançável pelo Nginx, dentro da rede
+    # interna do Compose. Nada além do gateway fala diretamente com o
+    # Gunicorn.
+    volumes:
+      - static_files:/app/staticfiles
+      - backend_logs:/app/logs
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
 
-  frontend:
+  nginx:
     build:
       context: .
       dockerfile: frontend/Dockerfile
       target: prod
+      args:
+        VITE_API_URL: /api
+    env_file: .env
+    environment:
+      DOMAIN_NAME: ${DOMAIN_NAME}
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - static_files:/usr/share/nginx/html/backend-static:ro
+      - certbot_certs:/etc/letsencrypt:ro
+      - certbot_webroot:/var/www/certbot:ro
+      - nginx_logs:/var/log/nginx
     depends_on:
       - backend
     restart: unless-stopped
 
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      - certbot_certs:/etc/letsencrypt
+      - certbot_webroot:/var/www/certbot
+    # Verifica a cada 12h se o certificado está a menos de 30 dias do
+    # vencimento e renova quando necessário. O Nginx precisa ser recarregado
+    # depois de uma renovação — ver docs/deploy-aws.md ("Renovação do
+    # certificado") para o cron de reload no host.
+    entrypoint: >
+      sh -c "trap exit TERM;
+      while :; do
+        certbot renew --webroot -w /var/www/certbot --quiet;
+        sleep 12h;
+      done"
+    restart: unless-stopped
+
 volumes:
   postgres_data:
+  static_files:
+  certbot_certs:
+  certbot_webroot:
+  backend_logs:
+  nginx_logs:
