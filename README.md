@@ -508,6 +508,15 @@ Enviar documentação
 docker compose exec backend pytest -v
 ```
 
+**Rodando fora do Docker:** `POSTGRES_HOST` no `.env` é `db`, o nome do serviço na rede interna do Compose — só resolve dentro de um container. Para rodar `pytest` nativo (Windows, Linux ou macOS, fora do `docker compose exec`), suba apenas o banco e aponte para `localhost` (a porta 5432 já é publicada em `docker-compose.yml`):
+
+```bash
+docker compose up -d db
+POSTGRES_HOST=localhost pytest --cov=apps --cov=config --cov-report=term-missing
+```
+
+No PowerShell, defina a variável com `$env:POSTGRES_HOST="localhost"` antes do comando. Sem isso, a suíte inteira falha com `OperationalError: failed to resolve host 'db'` — e, com `pytest-cov` instrumentado desde a Sprint 9, esse tipo de falha em massa também aparece como uma cobertura artificialmente baixa (a maior parte do código nunca chega a ser exercitada), não é uma regressão real.
+
 Cobertura medida com `pytest-cov` (`.coveragerc`), instrumentada na Sprint 9: **98%** sobre `apps/` e `config/` (migrations, testes e os módulos de settings de dev/prod, não exercitados pelo settings de teste, ficam de fora da medição por não serem testáveis dessa forma — validados via `manage.py check --deploy` e pelo build Docker). O pipeline de CI falha se a cobertura cair abaixo de 95%.
 
 ```bash
