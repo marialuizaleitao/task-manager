@@ -1,0 +1,287 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.13"
+  NODE_VERSION: "24"
+
+jobs:
+  backend:
+    name: Backend (check, migrations, tests, coverage)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: task_manager_ci
+          POSTGRES_USER: task_manager
+          POSTGRES_PASSWORD: task_manager
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U task_manager -d task_manager_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      DJANGO_SECRET_KEY: ci-secret-key
+      DJANGO_ALLOWED_HOSTS: localhost
+      CORS_ALLOWED_ORIGINS: http://localhost:5173
+      POSTGRES_DB: task_manager_ci
+      POSTGRES_USER: task_manager
+      POSTGRES_PASSWORD: task_manager
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      GOOGLE_TOKEN_ENCRYPTION_KEY: IS6Pk8SPwjgKvUaEM5hb0C0TAQx92R5AJqXI_u-tguE=
+      TELEGRAM_BOT_TOKEN: ci-telegram-bot-token
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements/base.txt
+            backend/requirements/dev.txt
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: pip install -r requirements/dev.txt
+
+      - name: Django system check
+        working-directory: backend
+        run: python manage.py check
+
+      - name: Check for missing migrations
+        working-directory: backend
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Run tests with coverage
+        working-directory: backend
+        run: >
+          pytest --cov=apps --cov=config --cov-report=term-missing
+          --cov-report=xml --cov-fail-under=95
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage.xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        continue-on-error: true
+        with:
+          files: backend/coverage.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  frontend:
+    name: Frontend (lint, build)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+        env:
+          VITE_API_URL: /api
+
+      - name: Upload frontend build
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+
+  e2e:
+    name: End-to-end (Selenium)
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: task_manager_e2e
+          POSTGRES_USER: task_manager
+          POSTGRES_PASSWORD: task_manager
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U task_manager -d task_manager_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      DJANGO_SECRET_KEY: e2e-secret-key
+      CORS_ALLOWED_ORIGINS: http://localhost:4173
+      POSTGRES_DB: task_manager_e2e
+      POSTGRES_USER: task_manager
+      POSTGRES_PASSWORD: task_manager
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      GOOGLE_TOKEN_ENCRYPTION_KEY: IS6Pk8SPwjgKvUaEM5hb0C0TAQx92R5AJqXI_u-tguE=
+      TELEGRAM_BOT_TOKEN: ci-telegram-bot-token
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements/base.txt
+            backend/requirements/dev.txt
+            e2e/requirements.txt
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Chrome
+        uses: browser-actions/setup-chrome@v1
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: pip install -r requirements/dev.txt
+
+      - name: Install e2e dependencies
+        working-directory: e2e
+        run: pip install -r requirements.txt
+
+      - name: Apply migrations
+        working-directory: backend
+        run: python manage.py migrate --noinput
+
+      - name: Start backend
+        working-directory: backend
+        run: nohup python manage.py runserver 0.0.0.0:8000 > backend.log 2>&1 &
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend for e2e
+        working-directory: frontend
+        env:
+          VITE_API_URL: http://localhost:8000/api
+        run: npm run build
+
+      - name: Serve built frontend
+        working-directory: frontend
+        run: nohup npx vite preview --port 4173 --strictPort > preview.log 2>&1 &
+
+      - name: Wait for backend and frontend
+        run: |
+          for i in $(seq 1 30); do curl -sf http://localhost:8000/api/health/ && break; sleep 2; done
+          for i in $(seq 1 30); do curl -sf http://localhost:4173 > /dev/null && break; sleep 2; done
+
+      - name: Run Selenium suite
+        working-directory: e2e
+        env:
+          E2E_BASE_URL: http://localhost:4173
+        run: pytest -v
+
+      - name: Upload service logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-logs
+          path: |
+            backend/backend.log
+            frontend/preview.log
+
+  docker:
+    name: Docker build and compose validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image (dev)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          target: dev
+          push: false
+          cache-from: type=gha,scope=backend-dev
+          cache-to: type=gha,mode=max,scope=backend-dev
+
+      - name: Build backend image (prod)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          target: prod
+          push: false
+          cache-from: type=gha,scope=backend-prod
+          cache-to: type=gha,mode=max,scope=backend-prod
+
+      - name: Build frontend image (dev)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: frontend/Dockerfile
+          target: dev
+          push: false
+          cache-from: type=gha,scope=frontend-dev
+          cache-to: type=gha,mode=max,scope=frontend-dev
+
+      - name: Build frontend image (prod)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: frontend/Dockerfile
+          target: prod
+          push: false
+          cache-from: type=gha,scope=frontend-prod
+          cache-to: type=gha,mode=max,scope=frontend-prod
+
+      - name: Validate docker-compose (development)
+        run: |
+          cp .env.example .env
+          docker compose -f docker-compose.yml config -q
+
+      - name: Validate docker-compose (production)
+        run: |
+          cp .env.prod.example .env
+          docker compose -f docker-compose.prod.yml config -q
