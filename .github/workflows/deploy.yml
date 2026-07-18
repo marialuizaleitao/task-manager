@@ -1,0 +1,28 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Ambiente de destino"
+        required: true
+        type: choice
+        options:
+          - development
+          - production
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Deploy ainda e manual
+        run: |
+          echo "O deploy deste projeto ainda e manual, seguindo docs/deploy-aws.md."
+          echo "Este workflow existe apenas para o GitHub reconhecer o environment '${{ inputs.environment }}'"
+          echo "e passar a rastrear deployments (aba Environments do repositorio)."
+          echo "Nenhuma automacao de deploy foi implementada nesta sprint."

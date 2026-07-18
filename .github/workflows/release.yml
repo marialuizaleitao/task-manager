@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versao a publicar (SemVer, ex.: 0.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Tag and publish release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate version format
+        run: |
+          echo "${{ inputs.version }}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || {
+            echo "Versao invalida: ${{ inputs.version }}. Use o formato X.Y.Z (SemVer)."
+            exit 1
+          }
+
+      - name: Check changelog has an entry for this version
+        run: |
+          grep -q "## \[${{ inputs.version }}\]" CHANGELOG.md || {
+            echo "CHANGELOG.md nao tem uma secao [${{ inputs.version }}]. Adicione-a antes de rodar este workflow."
+            exit 1
+          }
+
+      - name: Extract changelog section for this version
+        run: |
+          awk '/^## \[${{ inputs.version }}\]/{flag=1;next}/^## \[/{flag=0}flag' CHANGELOG.md > release-notes.md
+          cat release-notes.md
+
+      - name: Create tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${{ inputs.version }}" -m "Release v${{ inputs.version }}"
+          git push origin "v${{ inputs.version }}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ inputs.version }}
+          name: v${{ inputs.version }}
+          body_path: release-notes.md
+          target_commitish: master
