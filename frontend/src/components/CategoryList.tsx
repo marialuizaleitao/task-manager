@@ -8,7 +8,7 @@ interface CategoryListProps {
 
 export function CategoryList({ categories, onEdit, onDelete }: CategoryListProps) {
   if (categories.length === 0) {
-    return <p className="empty-state">Nenhuma categoria cadastrada ainda.</p>
+    return <p className="empty-state">Nenhuma categoria cadastrada ainda. Use o formulário acima para criar a primeira.</p>
   }
 
   return (

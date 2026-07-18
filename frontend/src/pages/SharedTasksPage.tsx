@@ -63,7 +63,14 @@ export function SharedTasksPage() {
       <main className="tasks-page">
         <h1>Tarefas compartilhadas comigo</h1>
 
-        {error && <p className="error">{error}</p>}
+        {error && (
+          <div className="error error--with-action">
+            <span>{error}</span>
+            <button type="button" className="btn-secondary" onClick={() => loadTasks()}>
+              Tentar novamente
+            </button>
+          </div>
+        )}
         {isLoading ? (
           <p className="loading-state">Carregando...</p>
         ) : tasks.length === 0 ? (

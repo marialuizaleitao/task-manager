@@ -142,9 +142,6 @@ export function TasksPage() {
       <main className="tasks-page">
         <h1>Tarefas</h1>
 
-        <GoogleCalendarPanel />
-        <TelegramPanel />
-
         <TaskForm
           key={editingTask?.id ?? 'new'}
           initialValue={editingTask}
@@ -153,6 +150,7 @@ export function TasksPage() {
           onCancel={editingTask ? () => setEditingTask(null) : undefined}
         />
 
+        <h2>Filtros</h2>
         <div className="filter-form">
           <label>
             Buscar
@@ -197,9 +195,6 @@ export function TasksPage() {
               <option value="-updated_at">Atualizada recentemente</option>
             </select>
           </label>
-        </div>
-
-        <div className="filter-form">
           <label>
             Vencimento a partir de
             <input
@@ -255,7 +250,14 @@ export function TasksPage() {
           </ul>
         )}
 
-        {error && <p className="error">{error}</p>}
+        {error && (
+          <div className="error error--with-action">
+            <span>{error}</span>
+            <button type="button" className="btn-secondary" onClick={() => loadTasks(filters)}>
+              Tentar novamente
+            </button>
+          </div>
+        )}
         {isLoading ? (
           <p className="loading-state">Carregando...</p>
         ) : (
@@ -277,6 +279,9 @@ export function TasksPage() {
             </div>
           </>
         )}
+
+        <GoogleCalendarPanel />
+        <TelegramPanel />
       </main>
     </>
   )

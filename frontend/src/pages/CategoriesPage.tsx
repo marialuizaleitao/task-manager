@@ -85,7 +85,14 @@ export function CategoriesPage() {
           <button type="submit">Filtrar</button>
         </form>
 
-        {error && <p className="error">{error}</p>}
+        {error && (
+          <div className="error error--with-action">
+            <span>{error}</span>
+            <button type="button" className="btn-secondary" onClick={() => loadCategories(nameFilter)}>
+              Tentar novamente
+            </button>
+          </div>
+        )}
         {isLoading ? (
           <p className="loading-state">Carregando...</p>
         ) : (

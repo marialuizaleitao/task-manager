@@ -15,7 +15,7 @@ export function TaskList({ tasks, categories, onToggleCompleted, onEdit, onDelet
   const [expandedShareTaskId, setExpandedShareTaskId] = useState<number | null>(null)
 
   if (tasks.length === 0) {
-    return <p className="empty-state">Nenhuma tarefa cadastrada ainda.</p>
+    return <p className="empty-state">Nenhuma tarefa cadastrada ainda. Use o formulário acima para criar a primeira.</p>
   }
 
   function categoryName(categoryId: number | null): string | null {
