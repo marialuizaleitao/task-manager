@@ -215,7 +215,7 @@ jobs:
         working-directory: e2e
         env:
           E2E_BASE_URL: http://localhost:4173
-        run: pytest -v
+        run: pytest -v -p no:django
 
       - name: Upload service logs
         if: failure()
