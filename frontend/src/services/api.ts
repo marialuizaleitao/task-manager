@@ -55,3 +55,30 @@ api.interceptors.response.use(
     }
   },
 )
+
+/**
+ * Extrai mensagens de erro por campo de uma resposta de validação do DRF.
+ *
+ * O DRF retorna `{ campo: ["mensagem"] }` (ou `{ non_field_errors: [...] }`
+ * para erros que não pertencem a um campo específico). Formulários usam o
+ * retorno para exibir cada mensagem junto ao campo correspondente, em vez de
+ * descartar o motivo real da falha.
+ */
+export function extractFieldErrors(error: unknown): Record<string, string> {
+  if (!axios.isAxiosError(error) || !error.response?.data || typeof error.response.data !== 'object') {
+    return {}
+  }
+
+  const data = error.response.data as Record<string, unknown>
+  const fieldErrors: Record<string, string> = {}
+
+  for (const [field, value] of Object.entries(data)) {
+    if (Array.isArray(value) && typeof value[0] === 'string') {
+      fieldErrors[field] = value[0]
+    } else if (typeof value === 'string') {
+      fieldErrors[field] = value
+    }
+  }
+
+  return fieldErrors
+}
