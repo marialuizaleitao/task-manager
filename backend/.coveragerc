@@ -1,0 +1,17 @@
+[run]
+source = apps,config
+
+omit =
+    */migrations/*
+    */tests/*
+    manage.py
+    config/asgi.py
+    config/wsgi.py
+    config/settings/dev.py
+    config/settings/prod.py
+    config/settings/sandbox_test_settings.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    raise NotImplementedError

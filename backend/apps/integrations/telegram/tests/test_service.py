@@ -115,6 +115,54 @@ class TestNotify:
 
         fake_client.send_message.assert_not_called()
 
+    def test_task_shared_sends_message_with_permission_label(
+        self, telegram_connection, task_factory, fake_client
+    ):
+        task = task_factory(title="Enviar documentação")
+        event = NotificationEvent(
+            key="task.shared", user=task.owner, subject=task, context={"permission": "edit"}
+        )
+
+        TelegramService().notify(event)
+
+        _, text = fake_client.send_message.call_args[0]
+        assert "Enviar documentação" in text
+        assert "Edição" in text
+
+    def test_task_shared_updated_sends_message_with_actor_and_status(
+        self, telegram_connection, task_factory, fake_client, another_user
+    ):
+        task = task_factory(title="Revisar contrato", completed=True)
+        event = NotificationEvent(
+            key="task.shared_updated", user=task.owner, subject=task, context={"actor": another_user}
+        )
+
+        TelegramService().notify(event)
+
+        _, text = fake_client.send_message.call_args[0]
+        assert another_user.email in text
+        assert "Concluída" in text
+
+    def test_calendar_sync_succeeded_sends_message(self, telegram_connection, task_factory, fake_client):
+        task = task_factory(title="Reunião com cliente")
+        event = NotificationEvent(key="calendar.sync_succeeded", user=task.owner, subject=task)
+
+        TelegramService().notify(event)
+
+        _, text = fake_client.send_message.call_args[0]
+        assert "Reunião com cliente" in text
+        assert "sincronizada" in text.lower()
+
+    def test_calendar_sync_failed_sends_message(self, telegram_connection, task_factory, fake_client):
+        task = task_factory(title="Reunião com cliente")
+        event = NotificationEvent(key="calendar.sync_failed", user=task.owner, subject=task)
+
+        TelegramService().notify(event)
+
+        _, text = fake_client.send_message.call_args[0]
+        assert "Reunião com cliente" in text
+        assert "não foi possível sincronizar" in text.lower()
+
 
 class TestSendText:
     def test_send_text_raises_when_not_connected(self, user):
