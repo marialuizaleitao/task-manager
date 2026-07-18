@@ -75,7 +75,14 @@ export function GoogleCalendarPanel() {
 
   return (
     <section className="google-calendar-panel">
-      <h2>Google Calendar</h2>
+      <div className="panel-header">
+        <h2>Google Calendar</h2>
+        {!isLoading && (
+          <span className={`status status--${status?.connected ? 'online' : 'offline'}`}>
+            {status?.connected ? 'Conectado' : 'Não conectado'}
+          </span>
+        )}
+      </div>
 
       {feedback === 'connected' && <p className="status status--online">Conta conectada com sucesso.</p>}
       {feedback === 'error' && (
@@ -84,28 +91,31 @@ export function GoogleCalendarPanel() {
       {error && <p className="error">{error}</p>}
 
       {isLoading ? (
-        <p className="status">Carregando...</p>
+        <p className="loading-state">Carregando...</p>
       ) : status?.connected ? (
         <div className="task-item-row">
-          <span className="status status--online">Conectado</span>
           <label>
             <input
               type="checkbox"
               checked={status.enabled}
               onChange={(event) => handleToggle(event.target.checked)}
             />
-            Sincronizar tarefas com due_date automaticamente
+            Sincronizar tarefas com data de vencimento
           </label>
-          <button type="button" onClick={handleDisconnect}>
+          <button type="button" className="btn-secondary" onClick={handleDisconnect}>
             Desconectar
           </button>
         </div>
       ) : (
-        <div className="task-item-row">
-          <span className="status status--offline">Não conectado</span>
-          <button type="button" onClick={handleConnect}>
-            Conectar Google Calendar
-          </button>
+        <div>
+          <p className="field-hint">
+            Conecte para sincronizar automaticamente suas tarefas com data de vencimento na sua agenda do Google.
+          </p>
+          <div className="task-item-row">
+            <button type="button" onClick={handleConnect}>
+              Conectar agenda do Google
+            </button>
+          </div>
         </div>
       )}
     </section>

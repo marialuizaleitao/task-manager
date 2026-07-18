@@ -1,8 +1,70 @@
 :root {
-  color-scheme: light dark;
-  font: 16px/1.5 system-ui, 'Segoe UI', Roboto, sans-serif;
+  color-scheme: light;
+
+  --color-bg: #f6f8fa;
+  --color-surface: #ffffff;
+  --color-border: #d8dee4;
+  --color-text: #1f2328;
+  --color-text-muted: #57606a;
+
+  --color-primary: #2c5f8a;
+  --color-primary-hover: #234c6f;
+  --color-primary-bg: #eaf1f7;
+
+  --color-success: #1a7f37;
+  --color-success-bg: #e6f4ea;
+
+  --color-error: #cf222e;
+  --color-error-bg: #fdedee;
+
+  --color-warning: #9a6700;
+  --color-warning-bg: #fff8e5;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+
+  --radius: 6px;
+  --radius-pill: 999px;
+
+  --font-size-title: 1.5rem;
+  --font-size-subtitle: 1.125rem;
+  --font-size-body: 1rem;
+  --font-size-caption: 0.85rem;
+
+  --focus-ring: 0 0 0 3px var(--color-primary-bg), 0 0 0 1px var(--color-primary);
+
+  font: var(--font-size-body) / 1.5 system-ui, 'Segoe UI', Roboto, sans-serif;
+  color: var(--color-text);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
+  background: var(--color-bg);
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--color-primary);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius);
 }
