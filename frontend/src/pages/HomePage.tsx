@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { NavBar } from '../components/NavBar'
 import { useAuth } from '../hooks/useAuth'
 import { useHealthCheck } from '../hooks/useHealthCheck'
 
@@ -9,26 +10,25 @@ const statusLabel = {
 }
 
 export function HomePage() {
-  const { user, logout } = useAuth()
+  const { user } = useAuth()
   const connectionState = useHealthCheck()
 
   return (
-    <main className="app">
-      <h1>Task Manager</h1>
-      <p>Bem-vindo, {user?.first_name || user?.email}.</p>
-      <p className={`status status--${connectionState}`}>{statusLabel[connectionState]}</p>
-      <p>
-        <Link to="/tasks">Minhas tarefas</Link>
-      </p>
-      <p>
-        <Link to="/shared-tasks">Tarefas compartilhadas comigo</Link>
-      </p>
-      <p>
-        <Link to="/categories">Gerenciar categorias</Link>
-      </p>
-      <button type="button" onClick={() => logout()}>
-        Sair
-      </button>
-    </main>
+    <>
+      <NavBar />
+      <main className="app">
+        <h1>Bem-vindo, {user?.first_name || user?.email}.</h1>
+        <p className={`status status--${connectionState}`}>{statusLabel[connectionState]}</p>
+        <p>
+          <Link to="/tasks">Minhas tarefas</Link>
+        </p>
+        <p>
+          <Link to="/shared-tasks">Tarefas compartilhadas comigo</Link>
+        </p>
+        <p>
+          <Link to="/categories">Gerenciar categorias</Link>
+        </p>
+      </main>
+    </>
   )
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { NavBar } from '../components/NavBar'
 import { TaskForm } from '../components/TaskForm'
 import * as categoriesService from '../services/categories'
 import type { Category } from '../services/categories'
@@ -58,67 +58,67 @@ export function SharedTasksPage() {
   }
 
   return (
-    <main className="tasks-page">
-      <p>
-        <Link to="/">Voltar</Link>
-      </p>
-      <h1>Tarefas compartilhadas comigo</h1>
+    <>
+      <NavBar />
+      <main className="tasks-page">
+        <h1>Tarefas compartilhadas comigo</h1>
 
-      {error && <p className="error">{error}</p>}
-      {isLoading ? (
-        <p>Carregando...</p>
-      ) : tasks.length === 0 ? (
-        <p>Nenhuma tarefa foi compartilhada com você ainda.</p>
-      ) : (
-        <>
-          <ul className="task-list">
-            {tasks.map((task) => (
-              <li key={task.id} className={`task-item ${task.completed ? 'task-item--completed' : ''}`}>
-                <div className="task-item-row">
-                  <input
-                    type="checkbox"
-                    checked={task.completed}
-                    disabled={task.permission !== 'edit'}
-                    onChange={() => handleToggleCompleted(task)}
-                  />
-                  <div className="task-info">
-                    <strong>{task.title}</strong>
-                    {task.description && <p>{task.description}</p>}
-                    <p className="task-meta">
-                      <span>De: {task.owner.email}</span>
-                      <span>{task.permission === 'edit' ? 'Edição' : 'Leitura'}</span>
-                      {task.due_date && <span>Vence em {task.due_date}</span>}
-                    </p>
-                  </div>
-                  {task.permission === 'edit' && (
-                    <div className="task-actions">
-                      <button
-                        type="button"
-                        onClick={() => setEditingTaskId((current) => (current === task.id ? null : task.id))}
-                      >
-                        Editar
-                      </button>
+        {error && <p className="error">{error}</p>}
+        {isLoading ? (
+          <p className="loading-state">Carregando...</p>
+        ) : tasks.length === 0 ? (
+          <p className="empty-state">Nenhuma tarefa foi compartilhada com você ainda.</p>
+        ) : (
+          <>
+            <ul className="task-list">
+              {tasks.map((task) => (
+                <li key={task.id} className={`task-item ${task.completed ? 'task-item--completed' : ''}`}>
+                  <div className="task-item-row">
+                    <input
+                      type="checkbox"
+                      checked={task.completed}
+                      disabled={task.permission !== 'edit'}
+                      onChange={() => handleToggleCompleted(task)}
+                    />
+                    <div className="task-info">
+                      <strong>{task.title}</strong>
+                      {task.description && <p>{task.description}</p>}
+                      <p className="task-meta">
+                        <span>De: {task.owner.email}</span>
+                        <span>{task.permission === 'edit' ? 'Edição' : 'Leitura'}</span>
+                        {task.due_date && <span>Vence em {task.due_date}</span>}
+                      </p>
                     </div>
+                    {task.permission === 'edit' && (
+                      <div className="task-actions">
+                        <button
+                          type="button"
+                          onClick={() => setEditingTaskId((current) => (current === task.id ? null : task.id))}
+                        >
+                          Editar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  {editingTaskId === task.id && (
+                    <TaskForm
+                      initialValue={task}
+                      categories={categories}
+                      onSubmit={(payload) => handleUpdate(task, payload)}
+                      onCancel={() => setEditingTaskId(null)}
+                    />
                   )}
-                </div>
-                {editingTaskId === task.id && (
-                  <TaskForm
-                    initialValue={task}
-                    categories={categories}
-                    onSubmit={(payload) => handleUpdate(task, payload)}
-                    onCancel={() => setEditingTaskId(null)}
-                  />
-                )}
-              </li>
-            ))}
-          </ul>
-          {nextPageUrl && (
-            <button type="button" onClick={handleLoadMore}>
-              Carregar mais
-            </button>
-          )}
-        </>
-      )}
-    </main>
+                </li>
+              ))}
+            </ul>
+            {nextPageUrl && (
+              <button type="button" onClick={handleLoadMore}>
+                Carregar mais
+              </button>
+            )}
+          </>
+        )}
+      </main>
+    </>
   )
 }

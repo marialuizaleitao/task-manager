@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
 import { CategoryForm } from '../components/CategoryForm'
 import { CategoryList } from '../components/CategoryList'
+import { NavBar } from '../components/NavBar'
 import * as categoriesService from '../services/categories'
 import type { Category, CategoryPayload } from '../services/categories'
 
@@ -64,41 +64,41 @@ export function CategoriesPage() {
   }
 
   return (
-    <main className="categories-page">
-      <p>
-        <Link to="/">Voltar</Link>
-      </p>
-      <h1>Categorias</h1>
+    <>
+      <NavBar />
+      <main className="categories-page">
+        <h1>Categorias</h1>
 
-      <CategoryForm
-        key={editingCategory?.id ?? 'new'}
-        initialValue={editingCategory}
-        onSubmit={handleCreateOrUpdate}
-        onCancel={editingCategory ? () => setEditingCategory(null) : undefined}
-      />
-
-      <form onSubmit={handleFilterSubmit} className="filter-form">
-        <input
-          placeholder="Filtrar por nome"
-          value={nameFilter}
-          onChange={(event) => setNameFilter(event.target.value)}
+        <CategoryForm
+          key={editingCategory?.id ?? 'new'}
+          initialValue={editingCategory}
+          onSubmit={handleCreateOrUpdate}
+          onCancel={editingCategory ? () => setEditingCategory(null) : undefined}
         />
-        <button type="submit">Filtrar</button>
-      </form>
 
-      {error && <p className="error">{error}</p>}
-      {isLoading ? (
-        <p>Carregando...</p>
-      ) : (
-        <>
-          <CategoryList categories={categories} onEdit={setEditingCategory} onDelete={handleDelete} />
-          {nextPageUrl && (
-            <button type="button" onClick={handleLoadMore}>
-              Carregar mais
-            </button>
-          )}
-        </>
-      )}
-    </main>
+        <form onSubmit={handleFilterSubmit} className="filter-form">
+          <input
+            placeholder="Filtrar por nome"
+            value={nameFilter}
+            onChange={(event) => setNameFilter(event.target.value)}
+          />
+          <button type="submit">Filtrar</button>
+        </form>
+
+        {error && <p className="error">{error}</p>}
+        {isLoading ? (
+          <p className="loading-state">Carregando...</p>
+        ) : (
+          <>
+            <CategoryList categories={categories} onEdit={setEditingCategory} onDelete={handleDelete} />
+            {nextPageUrl && (
+              <button type="button" onClick={handleLoadMore}>
+                Carregar mais
+              </button>
+            )}
+          </>
+        )}
+      </main>
+    </>
   )
 }
