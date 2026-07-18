@@ -52,7 +52,7 @@ export function CategoryForm({ initialValue, onSubmit, onCancel }: CategoryFormP
         setColor('#1a73e8')
       }
     } catch (err) {
-      setFieldErrors(extractFieldErrors(err))
+      setFieldErrors(extractFieldErrors(err, 'Não foi possível salvar a categoria. Tente novamente.'))
     } finally {
       setIsSubmitting(false)
     }

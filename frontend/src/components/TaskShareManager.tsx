@@ -54,7 +54,7 @@ export function TaskShareManager({ taskId }: TaskShareManagerProps) {
       setEmail('')
       setPermission('read')
     } catch (err) {
-      setFieldErrors(extractFieldErrors(err))
+      setFieldErrors(extractFieldErrors(err, 'Não foi possível compartilhar. Tente novamente.'))
     } finally {
       setIsSubmitting(false)
     }

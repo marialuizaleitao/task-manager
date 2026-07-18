@@ -58,7 +58,7 @@ export function TaskForm({ initialValue, categories, onSubmit, onCancel }: TaskF
         setDueDate('')
       }
     } catch (err) {
-      setFieldErrors(extractFieldErrors(err))
+      setFieldErrors(extractFieldErrors(err, 'Não foi possível salvar a tarefa. Tente novamente.'))
     } finally {
       setIsSubmitting(false)
     }

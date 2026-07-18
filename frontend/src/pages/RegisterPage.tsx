@@ -65,7 +65,7 @@ export function RegisterPage() {
       })
       navigate('/')
     } catch (err) {
-      setFieldErrors(extractFieldErrors(err))
+      setFieldErrors(extractFieldErrors(err, 'Não foi possível concluir o cadastro. Tente novamente.'))
     } finally {
       setIsSubmitting(false)
     }
