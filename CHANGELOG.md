@@ -53,6 +53,12 @@ estrutura inicial à auditoria final e hardening de produção.
   geral, diagrama de arquitetura, decisões arquiteturais e trade-offs
   consolidados, guia de contribuição e licença.
 
+### Removed
+
+- Rota `/admin/` e `django.contrib.admin` de `INSTALLED_APPS` — nenhum model
+  jamais foi registrado nela; era superfície de ataque sem uso real. Removida
+  também do proxy do Nginx em produção.
+
 ### Fixed
 
 - Título "Task Manager" ausente nas telas de login e cadastro.

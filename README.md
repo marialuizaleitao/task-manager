@@ -74,7 +74,7 @@ O projeto foi construído sprint a sprint, cada uma entregando uma versão funci
                         ┌────────────▼─────────────┐
                         │           Nginx           │  gateway único (produção)
                         │  /  → SPA (React build)   │
-                        │  /api, /admin → proxy      │
+                        │  /api → proxy              │
                         └────────────┬─────────────┘
                                      │
                      ┌───────────────▼────────────────┐
@@ -227,9 +227,8 @@ A Sprint 7 introduziu o Telegram como um "sistema de notificações de tarefa". 
 ```
 Internet → Elastic IP → Nginx (80/443, TLS termination)
                           ├── /            → build estático do React
-                          ├── /static/     → estáticos do Django (admin)
-                          ├── /api/        → proxy → Gunicorn
-                          └── /admin/      → proxy → Gunicorn
+                          ├── /static/     → estáticos do Django (ex.: browsable API do DRF)
+                          └── /api/        → proxy → Gunicorn
 Gunicorn (backend) → PostgreSQL (container na rede interna, sem porta pública)
 Gunicorn (backend) → Google Calendar API / Telegram Bot API
 Certbot → renova o certificado Let's Encrypt automaticamente
@@ -237,7 +236,7 @@ Certbot → renova o certificado Let's Encrypt automaticamente
 
 Tudo roda em uma única instância EC2 (t3.micro, Free Tier), orquestrado por `docker-compose.prod.yml`. Guia completo, do zero, em [`docs/deploy-aws.md`](docs/deploy-aws.md).
 
-**Um único gateway Nginx, não dois processos separados:** antes da Sprint 8, o container `frontend` era um Nginx sem nenhum conhecimento do backend (só servia a SPA), e o backend expunha a porta 8000 diretamente. Consolidar em um único Nginx que também faz proxy de `/api/` e `/admin/` elimina CORS em produção (frontend e API passam a ser a mesma origem do ponto de vista do navegador) e remove a necessidade de expor o Gunicorn publicamente — o backend só é alcançável pela rede interna do Docker.
+**Um único gateway Nginx, não dois processos separados:** antes da Sprint 8, o container `frontend` era um Nginx sem nenhum conhecimento do backend (só servia a SPA), e o backend expunha a porta 8000 diretamente. Consolidar em um único Nginx que também faz proxy de `/api/` elimina CORS em produção (frontend e API passam a ser a mesma origem do ponto de vista do navegador) e remove a necessidade de expor o Gunicorn publicamente — o backend só é alcançável pela rede interna do Docker.
 
 **PostgreSQL em Docker Compose na própria EC2, não Amazon RDS:** o Free Tier de RDS mudou em julho de 2025 — contas novas não têm mais cobertura gratuita de RDS Postgres tradicional (só Aurora Serverless por ~6 meses); contas legadas mantêm 750h/mês de `db.t3.micro`, mas isso não é garantido para quem for reproduzir este projeto. Rodar Postgres no mesmo Compose elimina essa incerteza de custo, mantém paridade total com o ambiente de desenvolvimento (mesma imagem `postgres:18-alpine`) e reproduz com um único `docker compose up`. Para este porte de projeto — um case técnico de instância única — o ganho de um banco gerenciado (backups automáticos, failover) não compensa o custo e a complexidade adicional de provisionar e documentar um segundo serviço AWS.
 
@@ -247,7 +246,7 @@ Tudo roda em uma única instância EC2 (t3.micro, Free Tier), orquestrado por `d
 
 **Gunicorn tunado para uma instância t3.micro (1 vCPU / 1 GiB RAM):** `GUNICORN_WORKERS=2` (a fórmula usual `2 * vCPU + 1` competiria demais por memória com Postgres e Nginx nesse porte de instância), `--timeout 30s` (folga acima do timeout de 10s configurado para as chamadas ao Google/Telegram) e `--keep-alive 5s`. Sem Redis — nenhum cache HTTP adicional foi introduzido; os únicos caches de resposta são os `Cache-Control` do Nginx para assets estáticos, já que respostas da API são sempre dinâmicas/autenticadas e não deveriam ser cacheadas.
 
-**Segurança:** `SECURE_PROXY_SSL_HEADER` (`config/settings/prod.py`) informa ao Django que a requisição chegou em HTTPS mesmo vindo do Nginx em HTTP puro internamente — sem isso, `SECURE_SSL_REDIRECT` entraria em loop de redirecionamento. HSTS (1 ano, sem preload — entrar na lista de preload dos navegadores é difícil de reverter), `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` e `Referrer-Policy` são aplicados tanto pelo Django quanto pelo Nginx (defesa em profundidade). `CSRF_TRUSTED_ORIGINS` é explícito, necessário para o login do `/admin/` funcionar sobre HTTPS. O container `backend` roda em produção como usuário não-root (`app`, criado no Dockerfile), e a API tem *rate limiting* por IP/usuário (`DEFAULT_THROTTLE_RATES`, ver "Decisões arquiteturais e trade-offs").
+**Segurança:** `SECURE_PROXY_SSL_HEADER` (`config/settings/prod.py`) informa ao Django que a requisição chegou em HTTPS mesmo vindo do Nginx em HTTP puro internamente — sem isso, `SECURE_SSL_REDIRECT` entraria em loop de redirecionamento. HSTS (1 ano, sem preload — entrar na lista de preload dos navegadores é difícil de reverter), `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` e `Referrer-Policy` são aplicados tanto pelo Django quanto pelo Nginx (defesa em profundidade). `CSRF_TRUSTED_ORIGINS` é explícito — a API em si usa JWT (sem CSRF), mas a proteção do Django permanece ativa por padrão para qualquer view futura autenticada por sessão. O container `backend` roda em produção como usuário não-root (`app`, criado no Dockerfile), e a API tem *rate limiting* por IP/usuário (`DEFAULT_THROTTLE_RATES`, ver "Decisões arquiteturais e trade-offs").
 
 **Logs:** logs de aplicação (`gunicorn-access.log`/`gunicorn-error.log`, volume `backend_logs`) ficam separados dos logs do Nginx (volume `nginx_logs`) — nenhuma ferramenta de observabilidade (Prometheus, Grafana) foi introduzida, por estar fora do escopo definido (ver "Melhorias futuras"); a separação em volumes próprios já deixa a estrutura pronta para um agente de coleta ser plugado no futuro sem reorganizar nada.
 
@@ -264,9 +263,9 @@ Resumo indexado das decisões mais relevantes — cada uma detalhada na seção 
 | Sincronização best-effort e síncrona, sem fila | Celery + retry automático | A criação de uma tarefa nunca deve falhar por causa de um serviço externo; uma fila resolveria retries, mas está fora do escopo desta versão |
 | `NotificationProvider.notify(event)` único | Um método por tipo de evento | Evita que a interface mude a cada novo tipo de evento; o catálogo de mensagens (`messages.py`) é que decide o que cada provedor sabe formatar |
 | Postgres em Docker Compose na EC2 | Amazon RDS | RDS deixou de ter Free Tier tradicional para contas novas (jul/2025); rodar no mesmo Compose elimina essa incerteza de custo e mantém paridade dev/produção |
-| Nginx único como gateway (proxy de `/api` e `/admin`) | Dois processos/portas separados | Elimina CORS em produção (mesma origem) e remove a necessidade de expor o Gunicorn publicamente |
+| Nginx único como gateway (proxy de `/api`) | Dois processos/portas separados | Elimina CORS em produção (mesma origem) e remove a necessidade de expor o Gunicorn publicamente |
 | DuckDNS em vez de Route 53 | Zona hospedada Route 53 | Certificado Let's Encrypt exige um hostname; DuckDNS resolve isso sem custo recorrente enquanto não há domínio próprio |
-| Rota `/admin/` mantida, sem nenhum model registrado | Remover a rota | Nenhum `admin.py` registra um model hoje — é superfície de ataque sem uso real, mas removê-la seria uma mudança de escopo (endpoint) fora do que esta sprint de auditoria autoriza; fica documentada como melhoria opcional (ver "Melhorias futuras") |
+| `django.contrib.admin` removido do projeto | Manter a rota `/admin/` sem uso | Nenhum `admin.py` jamais registrou um model — a rota era superfície de ataque sem nenhum ganho real. Removida na Sprint 11: `INSTALLED_APPS`, `urlpatterns`, proxy no Nginx e `collectstatic` não a conhecem mais |
 
 ## Estrutura do projeto
 
@@ -673,7 +672,6 @@ docker compose exec backend pytest --cov=apps --cov=config --cov-report=term-mis
 - **`task.shared_updated` dispara em qualquer atualização de uma tarefa compartilhada, não só em mudanças relevantes** (ex.: editar a descrição gera o mesmo aviso que mudar o prazo): mesmo nível de granularidade que `sync_task` já usa para o Google Calendar — refinar isso exigiria comparar campo a campo antes/depois, complexidade não justificada pelo volume de um projeto de demonstração.
 - **Rate limit da Bot API não tratado de forma proativa**: o projeto não implementa throttling local para o limite de ~30 mensagens/segundo do Telegram — no volume de uso de uma demonstração, isso nunca é atingido, mas fica registrado como débito técnico caso o número de usuários conectados cresça.
 - **Throttling do DRF impreciso entre workers**: o limite por IP/usuário (`DEFAULT_THROTTLE_RATES`) é contado em `LocMemCache`, em memória e por processo — com `GUNICORN_WORKERS=2`, o limite efetivo é até o dobro do configurado, já que cada worker conta separado. Aceitável para o propósito atual (frear automação simples), não para impor um SLA exato. Ver "Performance" para como Redis resolveria isso.
-- **Rota `/admin/` exposta sem nenhum model registrado**: nenhum app registra models no Django Admin hoje — a rota fica de pé apenas como parte padrão do Django. Documentado aqui em vez de removido nesta sprint (ver "Decisões arquiteturais e trade-offs").
 
 ## Melhorias futuras
 
@@ -685,7 +683,6 @@ Itens deliberadamente fora do escopo das dez sprints entregues, candidatos a uma
 - **Backoff exponencial para respostas `429`/`5xx` do Google Calendar**: hoje só há retry de conexão; o backoff de quota documentado pelo Google exigiria rodar fora do ciclo request/response (ligado à fila de tarefas acima).
 - **Campo `completed_at` dedicado em `Task`**: substituiria a aproximação por `updated_at` no resumo semanal do Telegram.
 - **Suporte a múltiplos calendários por usuário** na integração com o Google Calendar.
-- **Remoção ou reaproveitamento real da rota `/admin/`**: hoje não expõe nenhum model — decidir entre populá-la com um painel administrativo real ou removê-la.
 - **Observabilidade** (métricas, tracing, agregação de logs): os volumes de log já estão separados por serviço (ver "Arquitetura de produção"), prontos para receber um agente de coleta.
 - **Autenticação social** (login via Google/GitHub) como alternativa ao cadastro por e-mail/senha.
 

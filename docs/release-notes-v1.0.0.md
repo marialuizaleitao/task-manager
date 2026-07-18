@@ -67,7 +67,7 @@ Registry · Dependabot · Selenium · pytest / pytest-cov
 | Integrações externas | 2 (Google Calendar, Telegram) |
 | Imagens Docker | 4 (backend `dev`/`prod`, frontend `dev`/`prod`) |
 | Apps Django | 7 (`accounts`, `categories`, `tasks`, `sharing`, `integrations`, `integrations.google_calendar`, `integrations.telegram`) |
-| Endpoints de API | 24 |
+| Endpoints de API | 23 |
 | Linhas de código (aproximado) | ~8.300 (backend ~5.960, frontend ~2.140, e2e ~190) |
 | Sprints entregues | 11 (0 a 11, incluindo o refinamento 7.1) |
 
@@ -95,6 +95,8 @@ Registry · Dependabot · Selenium · pytest / pytest-cov
 - Container de backend em produção passou a rodar como usuário não-root.
 - Rate limiting (`DEFAULT_THROTTLE_RATES`) adicionado a toda a API.
 - Cobertura de testes ampliada (endpoint de health check antes sem teste).
+- Rota `/admin/` removida (`INSTALLED_APPS`, `urlpatterns` e proxy do Nginx) —
+  não havia nenhum model registrado nela.
 - Documentação consolidada em um README único, no padrão de projeto open
   source, incluindo diagrama de arquitetura, decisões e trade-offs, e um
   roadmap de melhorias futuras.
@@ -103,5 +105,4 @@ Registry · Dependabot · Selenium · pytest / pytest-cov
 
 Nenhum bloqueante. Documentados em detalhe no README, seções "Limitações
 conhecidas" e "Melhorias futuras": ausência de fila de tarefas em segundo
-plano (Celery), throttling impreciso entre workers do Gunicorn sem Redis, e
-a rota `/admin/` exposta sem nenhum model registrado.
+plano (Celery) e throttling impreciso entre workers do Gunicorn sem Redis.

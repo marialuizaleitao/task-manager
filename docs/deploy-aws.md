@@ -7,9 +7,8 @@ Arquitetura publicada:
 ```
 Internet → Elastic IP → Nginx (80/443, TLS)
                           ├── /            → build estático do React
-                          ├── /static/     → estáticos do Django (admin)
-                          ├── /api/        → proxy → Gunicorn
-                          └── /admin/      → proxy → Gunicorn
+                          ├── /static/     → estáticos do Django (ex.: browsable API do DRF)
+                          └── /api/        → proxy → Gunicorn
 Gunicorn (backend) → PostgreSQL (container na rede interna, sem porta pública)
 Gunicorn (backend) → Google Calendar API / Telegram Bot API
 Certbot → renova o certificado Let's Encrypt automaticamente
@@ -177,14 +176,7 @@ Espera-se `HTTP/2 200`. Depois, pelo navegador:
 - `https://<seu-domínio>` carrega o React, com cadeado válido.
 - Cadastro/login funcionam (`/api/accounts/...`).
 - CRUD de tarefas, categorias e compartilhamento funcionam.
-- `https://<seu-domínio>/admin/` carrega com o CSS do admin correto (confirma que `/static/` está sendo servido).
 - Se configurado, conectar Google Calendar e Telegram e confirmar que notificações chegam.
-
-Crie um superusuário para acessar o admin, se ainda não tiver um:
-
-```bash
-docker compose -f docker-compose.prod.yml exec backend python manage.py createsuperuser
-```
 
 ## 12. Renovação do certificado
 
@@ -234,7 +226,7 @@ Antes de repetir o deploy, sempre rode a suíte de testes localmente (`pytest` n
 
 **Certificado não emite (`certbot` falha)** — confirme que a porta 80 está acessível externamente (`curl http://$DOMAIN/.well-known/acme-challenge/teste` de outra máquina) e que o DNS do DuckDNS já propagou (`nslookup $DOMAIN`).
 
-**`/admin/` carrega sem CSS** — `collectstatic` não rodou ou o volume `static_files` não está montado corretamente no Nginx. Confirme com `docker compose exec nginx ls /usr/share/nginx/html/backend-static/`.
+**Browsable API do DRF carrega sem CSS** — `collectstatic` não rodou ou o volume `static_files` não está montado corretamente no Nginx. Confirme com `docker compose exec nginx ls /usr/share/nginx/html/backend-static/`.
 
 **Instância fica sem memória (OOM) com todos os containers de pé** — t3.micro tem só 1 GiB de RAM. Se ocorrer, adicione um swapfile de 1 GiB:
 
