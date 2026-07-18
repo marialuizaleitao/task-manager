@@ -60,6 +60,7 @@ export function LoginPage() {
 
   return (
     <main className="auth-page">
+      <p className="auth-brand">Task Manager</p>
       <div className="auth-card">
         <h1>Entrar</h1>
         <form onSubmit={handleSubmit} noValidate>

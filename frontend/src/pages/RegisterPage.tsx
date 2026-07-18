@@ -73,6 +73,7 @@ export function RegisterPage() {
 
   return (
     <main className="auth-page">
+      <p className="auth-brand">Task Manager</p>
       <div className="auth-card">
         <h1>Criar conta</h1>
         <form onSubmit={handleSubmit} noValidate>
