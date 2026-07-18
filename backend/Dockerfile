@@ -22,11 +22,17 @@ CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 # --- produção ------------------------------------------------------------
 FROM base AS prod
 
+RUN groupadd --system app && useradd --system --gid app --home-dir /app app
+
 COPY backend/requirements/ requirements/
 RUN pip install -r requirements/prod.txt
 
 COPY backend/ .
-RUN chmod +x docker-entrypoint.prod.sh
+RUN chmod +x docker-entrypoint.prod.sh \
+    && mkdir -p /app/logs /app/staticfiles \
+    && chown -R app:app /app
+
+USER app
 
 EXPOSE 8000
 ENTRYPOINT ["./docker-entrypoint.prod.sh"]
