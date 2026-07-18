@@ -1,6 +1,6 @@
 from selenium.webdriver.common.by import By
 
-from support import click_button, fill_labeled_input, wait_for_text
+from support import click_button, fill_labeled_input, wait_for_class, wait_for_text
 
 PASSWORD = "SenhaForte123"
 
@@ -27,15 +27,12 @@ class TestTaskLifecycle:
         click_button(driver, "Criar tarefa")
         wait_for_text(driver, "Preparar apresentação")
 
-        task_item = driver.find_element(
-            By.XPATH, "//strong[text()='Preparar apresentação']/ancestor::li"
-        )
+        item_xpath = "//strong[text()='Preparar apresentação']/ancestor::li"
+        task_item = driver.find_element(By.XPATH, item_xpath)
         task_item.find_element(By.XPATH, ".//input[@type='checkbox']").click()
 
-        wait_for_text(driver, "Preparar apresentação")
-        task_item = driver.find_element(
-            By.XPATH, "//strong[text()='Preparar apresentação']/ancestor::li"
-        )
+        wait_for_class(driver, item_xpath, "task-item--completed")
+        task_item = driver.find_element(By.XPATH, item_xpath)
         assert "task-item--completed" in task_item.get_attribute("class")
 
         task_item.find_element(By.XPATH, ".//button[text()='Excluir']").click()

@@ -29,3 +29,15 @@ def wait_for_text(driver, text: str, timeout: int = 10) -> None:
     WebDriverWait(driver, timeout).until(
         EC.presence_of_element_located((By.XPATH, f"//*[contains(text(), '{text}')]"))
     )
+
+
+def wait_for_class(driver, xpath: str, class_name: str, timeout: int = 10) -> None:
+    """Aguarda até que o elemento localizado por xpath tenha class_name.
+
+    Relocaliza o elemento a cada tentativa, em vez de reutilizar uma
+    referência já capturada: o React pode remontar o nó ao reagir à mudança
+    de estado, o que tornaria uma referência antiga inválida (stale).
+    """
+    WebDriverWait(driver, timeout).until(
+        lambda d: class_name in d.find_element(By.XPATH, xpath).get_attribute("class")
+    )
