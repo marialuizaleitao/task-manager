@@ -675,7 +675,7 @@ docker compose exec backend pytest --cov=apps --cov=config --cov-report=term-mis
 
 ## Melhorias futuras
 
-Itens deliberadamente fora do escopo das dez sprints entregues, candidatos a uma futura v2.0:
+Itens deliberadamente fora do escopo das sprints entregues, candidatos a uma futura v2.0:
 
 - **Fila de tarefas em segundo plano (Celery + Redis)**: dispararia `notify_task_overdue`, `DailySummaryService` e `WeeklySummaryService` automaticamente, e daria retry assíncrono às sincronizações com o Google Calendar. Ver "Performance" para como isso se encaixaria sem alterar a arquitetura atual.
 - **Backend de cache compartilhado (Redis) para o throttling do DRF**: eliminaria a imprecisão de limite entre workers do Gunicorn (ver "Limitações conhecidas").
