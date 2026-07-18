@@ -117,6 +117,10 @@ export function TelegramPanel() {
         </div>
       ) : (
         <div>
+          <p className="field-hint">
+            Conecte para receber notificações no Telegram quando uma tarefa for criada, concluída, ficar atrasada
+            ou for compartilhada com você.
+          </p>
           <div className="task-item-row">
             <button type="button" onClick={handleConnect}>
               Conectar Telegram

@@ -100,17 +100,22 @@ export function GoogleCalendarPanel() {
               checked={status.enabled}
               onChange={(event) => handleToggle(event.target.checked)}
             />
-            Sincronizar tarefas com due_date automaticamente
+            Sincronizar tarefas com data de vencimento
           </label>
           <button type="button" className="btn-secondary" onClick={handleDisconnect}>
             Desconectar
           </button>
         </div>
       ) : (
-        <div className="task-item-row">
-          <button type="button" onClick={handleConnect}>
-            Conectar Google Calendar
-          </button>
+        <div>
+          <p className="field-hint">
+            Conecte para sincronizar automaticamente suas tarefas com data de vencimento na sua agenda do Google.
+          </p>
+          <div className="task-item-row">
+            <button type="button" onClick={handleConnect}>
+              Conectar agenda do Google
+            </button>
+          </div>
         </div>
       )}
     </section>
