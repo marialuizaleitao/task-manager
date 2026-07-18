@@ -50,6 +50,7 @@ h1 {
 h2 {
   font-size: var(--font-size-subtitle);
   font-weight: 600;
+  margin-top: var(--space-5);
   margin-bottom: var(--space-3);
 }
 
@@ -143,6 +144,37 @@ label {
   color: var(--color-text-muted);
 }
 
+.required-marker {
+  color: var(--color-error);
+}
+
+.field-row {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.field-row > label {
+  flex: 1;
+}
+
+.field-error {
+  color: var(--color-error);
+  font-size: var(--font-size-caption);
+  font-weight: 400;
+}
+
+.field-hint {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-weight: 400;
+}
+
+.field-success {
+  color: var(--color-success);
+  font-size: var(--font-size-caption);
+  font-weight: 400;
+}
+
 input,
 select {
   padding: var(--space-2);
@@ -190,6 +222,11 @@ button:disabled {
   cursor: not-allowed;
 }
 
+button.btn-loading:disabled {
+  cursor: wait;
+  opacity: 0.8;
+}
+
 /* Botões secundários: ações que não são a principal do formulário/linha */
 .form-actions button[type='button'],
 .task-actions button,
@@ -233,6 +270,19 @@ button:disabled {
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius);
   font-size: var(--font-size-caption);
+}
+
+.error--with-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.error--with-action button {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-caption);
+  flex-shrink: 0;
 }
 
 .empty-state,
@@ -382,7 +432,7 @@ button:disabled {
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   padding: var(--space-4);
-  margin: 0 0 var(--space-4);
+  margin: var(--space-5) 0 0;
 }
 
 .panel-header {
@@ -394,6 +444,7 @@ button:disabled {
 }
 
 .panel-header h2 {
+  margin-top: 0;
   margin-bottom: 0;
 }
 
