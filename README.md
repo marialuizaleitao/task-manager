@@ -517,6 +517,15 @@ POSTGRES_HOST=localhost pytest --cov=apps --cov=config --cov-report=term-missing
 
 No PowerShell, defina a variável com `$env:POSTGRES_HOST="localhost"` antes do comando. Sem isso, a suíte inteira falha com `OperationalError: failed to resolve host 'db'` — e, com `pytest-cov` instrumentado desde a Sprint 9, esse tipo de falha em massa também aparece como uma cobertura artificialmente baixa (a maior parte do código nunca chega a ser exercitada), não é uma regressão real.
 
+**Conflito de porta com um PostgreSQL local:** se a conexão falhar com `FATAL: password authentication failed for user "task_manager"` mesmo com `.env`, volume do Compose e credenciais todos conferidos, o suspeito mais provável é outro processo já escutando na porta 5432 do host — tipicamente um PostgreSQL instalado nativamente (Windows, Linux ou macOS), rodando como serviço e capturando a conexão antes dela chegar ao container `db`. Sintoma característico: `docker compose exec db env | grep POSTGRES` mostra as credenciais corretas, mas qualquer conexão feita de fora do container (via `psql`, `psycopg` ou o `pytest`) é recusada, porque na verdade nunca chega no Postgres do projeto. Para confirmar, identifique quem está na porta:
+
+```bash
+netstat -ano | findstr 5432   # Windows
+sudo lsof -i :5432             # Linux/macOS
+```
+
+Se aparecer um `postgres`/`postgres.exe` além do processo do Docker, pare o serviço nativo (`net stop <nome-do-serviço>` no Windows, ou o equivalente via `systemctl`/`brew services` em Linux/macOS) e suba o `db` novamente. Alternativa, caso o Postgres local seja usado por outro projeto e não possa ser parado: publicar o serviço `db` em uma porta diferente (ex.: `5433:5432` em `docker-compose.yml`) e ajustar `POSTGRES_PORT` no `.env` de acordo — a rede interna do Compose continua usando 5432 normalmente, essa mudança afeta só o acesso pelo host.
+
 Cobertura medida com `pytest-cov` (`.coveragerc`), instrumentada na Sprint 9: **98%** sobre `apps/` e `config/` (migrations, testes e os módulos de settings de dev/prod, não exercitados pelo settings de teste, ficam de fora da medição por não serem testáveis dessa forma — validados via `manage.py check --deploy` e pelo build Docker). O pipeline de CI falha se a cobertura cair abaixo de 95%.
 
 ```bash
