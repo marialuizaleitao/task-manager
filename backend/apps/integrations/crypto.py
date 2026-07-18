@@ -33,9 +33,10 @@ class EncryptedTextField(models.TextField):
     """TextField que persiste o valor cifrado com Fernet no banco.
 
     A chave vem de GOOGLE_TOKEN_ENCRYPTION_KEY. O nome da variável é
-    específico do Google apenas porque é a única integração desta sprint;
-    nada neste campo é acoplado ao Google — um provedor futuro pode
-    reutilizá-lo diretamente ou apontar para outra variável de ambiente.
+    específico do Google apenas porque foi a primeira integração a precisar
+    de credencial criptografada; nada neste campo é acoplado ao Google — um
+    provedor futuro pode reutilizá-lo diretamente ou apontar para outra
+    variável de ambiente.
     """
 
     def get_prep_value(self, value):

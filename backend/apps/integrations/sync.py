@@ -71,7 +71,7 @@ class TaskEvent:
 
     CREATED e COMPLETED são disparados por apps/tasks a partir de uma
     transição real de estado (TaskViewSet.perform_create/perform_update).
-    OVERDUE não tem um ponto de disparo automático nesta sprint — não há
+    OVERDUE não tem um ponto de disparo automático ainda — não há
     scheduler (ver README, "Performance") — mas o provedor e a função de
     despacho já suportam o evento, prontos para serem chamados por uma
     tarefa periódica futura (Celery Beat) sem qualquer mudança de código.
