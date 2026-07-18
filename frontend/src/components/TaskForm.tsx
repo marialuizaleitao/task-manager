@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import type { Category } from '../services/categories'
+import { extractFieldErrors } from '../services/api'
 import type { Task, TaskPayload } from '../services/tasks'
 
 interface TaskFormProps {
@@ -9,12 +10,22 @@ interface TaskFormProps {
   onCancel?: () => void
 }
 
+interface FieldErrors {
+  title?: string
+  non_field_errors?: string
+}
+
+function validateTitle(value: string): string | undefined {
+  if (!value.trim()) return 'Informe um título para a tarefa.'
+  return undefined
+}
+
 export function TaskForm({ initialValue, categories, onSubmit, onCancel }: TaskFormProps) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [category, setCategory] = useState('')
   const [dueDate, setDueDate] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
@@ -22,13 +33,17 @@ export function TaskForm({ initialValue, categories, onSubmit, onCancel }: TaskF
     setDescription(initialValue?.description ?? '')
     setCategory(initialValue?.category ? String(initialValue.category) : '')
     setDueDate(initialValue?.due_date ?? '')
+    setFieldErrors({})
   }, [initialValue])
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    setError(null)
-    setIsSubmitting(true)
 
+    const titleError = validateTitle(title)
+    setFieldErrors({ title: titleError })
+    if (titleError) return
+
+    setIsSubmitting(true)
     try {
       await onSubmit({
         title,
@@ -42,18 +57,24 @@ export function TaskForm({ initialValue, categories, onSubmit, onCancel }: TaskF
         setCategory('')
         setDueDate('')
       }
-    } catch {
-      setError('Não foi possível salvar a tarefa. Verifique os dados informados.')
+    } catch (err) {
+      setFieldErrors(extractFieldErrors(err))
     } finally {
       setIsSubmitting(false)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="task-form">
+    <form onSubmit={handleSubmit} className="task-form" noValidate>
       <label>
-        Título
-        <input value={title} onChange={(event) => setTitle(event.target.value)} required />
+        Título <span className="required-marker">*</span>
+        <input
+          value={title}
+          placeholder="Ex.: Preparar apresentação"
+          onChange={(event) => setTitle(event.target.value)}
+          onBlur={() => setFieldErrors((current) => ({ ...current, title: validateTitle(title) }))}
+        />
+        {fieldErrors.title && <span className="field-error">{fieldErrors.title}</span>}
       </label>
       <label>
         Descrição
@@ -74,9 +95,9 @@ export function TaskForm({ initialValue, categories, onSubmit, onCancel }: TaskF
         Data de vencimento
         <input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
       </label>
-      {error && <p className="error">{error}</p>}
+      {fieldErrors.non_field_errors && <p className="error">{fieldErrors.non_field_errors}</p>}
       <div className="form-actions">
-        <button type="submit" disabled={isSubmitting}>
+        <button type="submit" className={isSubmitting ? 'btn-loading' : undefined} disabled={isSubmitting}>
           {initialValue ? 'Salvar' : 'Criar tarefa'}
         </button>
         {onCancel && (
