@@ -27,34 +27,36 @@ export function LoginPage() {
 
   return (
     <main className="auth-page">
-      <h1>Entrar</h1>
-      <form onSubmit={handleSubmit}>
-        <label>
-          E-mail
-          <input
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            required
-          />
-        </label>
-        <label>
-          Senha
-          <input
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-          />
-        </label>
-        {error && <p className="error">{error}</p>}
-        <button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Entrando...' : 'Entrar'}
-        </button>
-      </form>
-      <p>
-        Não tem conta? <Link to="/register">Cadastre-se</Link>
-      </p>
+      <div className="auth-card">
+        <h1>Entrar</h1>
+        <form onSubmit={handleSubmit}>
+          <label>
+            E-mail
+            <input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+            />
+          </label>
+          <label>
+            Senha
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+            />
+          </label>
+          {error && <p className="error">{error}</p>}
+          <button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Entrando...' : 'Entrar'}
+          </button>
+        </form>
+        <p className="auth-switch">
+          Não tem conta? <Link to="/register">Cadastre-se</Link>
+        </p>
+      </div>
     </main>
   )
 }

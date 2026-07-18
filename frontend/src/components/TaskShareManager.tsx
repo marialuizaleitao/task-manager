@@ -77,9 +77,9 @@ export function TaskShareManager({ taskId }: TaskShareManagerProps) {
       {error && <p className="error">{error}</p>}
 
       {isLoading ? (
-        <p>Carregando compartilhamentos...</p>
+        <p className="loading-state">Carregando compartilhamentos...</p>
       ) : shares.length === 0 ? (
-        <p>Esta tarefa ainda não foi compartilhada.</p>
+        <p className="empty-state">Esta tarefa ainda não foi compartilhada.</p>
       ) : (
         <ul className="share-list">
           {shares.map((share) => (
