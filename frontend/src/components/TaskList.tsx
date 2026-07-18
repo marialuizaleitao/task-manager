@@ -15,7 +15,7 @@ export function TaskList({ tasks, categories, onToggleCompleted, onEdit, onDelet
   const [expandedShareTaskId, setExpandedShareTaskId] = useState<number | null>(null)
 
   if (tasks.length === 0) {
-    return <p>Nenhuma tarefa cadastrada ainda.</p>
+    return <p className="empty-state">Nenhuma tarefa cadastrada ainda.</p>
   }
 
   function categoryName(categoryId: number | null): string | null {
@@ -35,6 +35,7 @@ export function TaskList({ tasks, categories, onToggleCompleted, onEdit, onDelet
             <input type="checkbox" checked={task.completed} onChange={() => onToggleCompleted(task)} />
             <div className="task-info">
               <strong>{task.title}</strong>
+              {task.completed && <span className="status status--online">Concluída</span>}
               {task.description && <p>{task.description}</p>}
               <p className="task-meta">
                 {categoryName(task.category) && <span>{categoryName(task.category)}</span>}

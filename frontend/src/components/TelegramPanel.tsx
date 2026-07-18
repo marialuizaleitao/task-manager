@@ -86,17 +86,23 @@ export function TelegramPanel() {
 
   return (
     <section className="telegram-panel">
-      <h2>Telegram</h2>
+      <div className="panel-header">
+        <h2>Telegram</h2>
+        {!isLoading && (
+          <span className={`status status--${status?.connected ? 'online' : 'offline'}`}>
+            {status?.connected
+              ? `Conectado${status.telegram_username ? ` (@${status.telegram_username})` : ''}`
+              : 'Não conectado'}
+          </span>
+        )}
+      </div>
 
       {error && <p className="error">{error}</p>}
 
       {isLoading ? (
-        <p className="status">Carregando...</p>
+        <p className="loading-state">Carregando...</p>
       ) : status?.connected ? (
         <div className="task-item-row">
-          <span className="status status--online">
-            Conectado{status.telegram_username ? ` (@${status.telegram_username})` : ''}
-          </span>
           <label>
             <input
               type="checkbox"
@@ -105,14 +111,13 @@ export function TelegramPanel() {
             />
             Receber notificações de tarefas
           </label>
-          <button type="button" onClick={handleDisconnect}>
+          <button type="button" className="btn-secondary" onClick={handleDisconnect}>
             Desconectar
           </button>
         </div>
       ) : (
         <div>
           <div className="task-item-row">
-            <span className="status status--offline">Não conectado</span>
             <button type="button" onClick={handleConnect}>
               Conectar Telegram
             </button>
