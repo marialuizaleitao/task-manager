@@ -2,8 +2,6 @@
 
 Aplicação web de gerenciamento de tarefas (To-Do List), desenvolvida como case técnico para demonstrar práticas profissionais de engenharia de software: arquitetura em camadas, containerização, testes automatizados, CI/CD e deploy em produção na nuvem.
 
-> **Status atual:** Sprint 11 em andamento — auditoria final, hardening, documentação definitiva e preparação da release `v1.0.0`. Sprints 0 a 10.1 concluídas: autenticação (JWT), cadastro e login, categorias, CRUD de tarefas, compartilhamento com controle de permissão, busca/filtros/ordenação avançados, integração com o Google Calendar, canal de comunicação via Telegram, deploy em produção na AWS, pipeline de CI/CD completo (GitHub Actions, Selenium, Dependabot) e refinamento de UI/UX.
-
 ## Sumário
 
 - [Visão geral](#visão-geral)
