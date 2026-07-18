@@ -17,7 +17,6 @@ environ.Env.read_env(BASE_DIR.parent / ".env")
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 
 INSTALLED_APPS = [
-    "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
@@ -108,6 +107,18 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 10,
+    # Limite defensivo contra abuso (força bruta em /auth/login/, scraping):
+    # generoso o bastante para não afetar uso normal, baixo o bastante para
+    # frear automação simples. Desativado em test.py para não interferir na
+    # suíte.
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "60/minute",
+        "user": "300/minute",
+    },
 }
 
 SIMPLE_JWT = {

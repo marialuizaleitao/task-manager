@@ -33,7 +33,7 @@ class ChatUnreachableError(ExternalServiceError):
 
 
 class TelegramClient:
-    """Cliente síncrono para os três métodos da Bot API usados nesta sprint.
+    """Cliente síncrono para os três métodos da Bot API usados pelo projeto.
 
     Responsável exclusivamente pela chamada HTTP e pela tradução de erros —
     nenhuma regra de negócio (localizar chat_id, decidir o que enviar) vive

@@ -36,7 +36,7 @@ class NotificationEvent:
 
     key identifica o tipo de evento por um namespace pontilhado (ex.:
     "task.created", "calendar.sync_failed") — a mesma convenção usada por
-    todo evento desta sprint em diante, o que permite que domínios futuros
+    todo evento do catálogo, o que permite que domínios futuros
     (ex.: "auth.login", "sharing.revoked", "comments.created",
     "audit.suspicious_login") passem a notificar sem exigir qualquer mudança
     nesta classe ou no Protocol abaixo: só é preciso construir um

@@ -51,7 +51,7 @@ class GoogleCalendarClient:
             # Retries do transporte cobrem apenas falhas de conexão (DNS,
             # timeout de conexão) — não substituem o backoff de quota
             # documentado pelo Google para 429/5xx, que fica fora do escopo
-            # desta sprint por exigir uma fila (ver README, "Limitações").
+            # fora do escopo do projeto por exigir uma fila (ver README, "Limitações").
             transport=httpx.HTTPTransport(retries=settings.GOOGLE_API_MAX_RETRIES),
         )
 

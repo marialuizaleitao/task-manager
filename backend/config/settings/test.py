@@ -4,6 +4,11 @@ from .base import *  # noqa: F401, F403
 DEBUG = False
 ALLOWED_HOSTS = ["*"]
 
+# Throttling desativado nos testes: os limites de base.py existem para
+# proteger o ambiente real e não têm relação com o que a suíte verifica —
+# deixá-los ativos só arriscaria falhas por acúmulo de contador entre testes.
+REST_FRAMEWORK = {**REST_FRAMEWORK, "DEFAULT_THROTTLE_CLASSES": [], "DEFAULT_THROTTLE_RATES": {}}
+
 # Hasher mais rápido para acelerar a criação de usuários nos testes.
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 

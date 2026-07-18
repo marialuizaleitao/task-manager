@@ -4,7 +4,7 @@ Centraliza toda formatação de texto em um único lugar, para que
 TelegramService.notify() permaneça um simples "escolher o formatter certo e
 enviar" — sem strings espalhadas nem condicionais repetidas por tipo de
 evento. Um catálogo simples (dict de key -> função) é suficiente para o
-volume de mensagens desta sprint; não há necessidade de um motor de
+volume de mensagens do projeto; não há necessidade de um motor de
 templates (ex.: Django templates, Jinja) para textos curtos e sem lógica de
 apresentação além de formatação de data e pluralização trivial.
 

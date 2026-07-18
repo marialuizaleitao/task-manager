@@ -191,7 +191,7 @@ class TelegramService:
 class DailySummaryService:
     """Monta e envia o resumo diário de tarefas de um usuário.
 
-    Nesta sprint, send_summary() não é chamado por nenhum fluxo automático
+    Atualmente, send_summary() não é chamado por nenhum fluxo automático
     — não há scheduler (ver README, "Performance"). O serviço existe pronto
     para ser invocado por usuário a partir de uma tarefa periódica futura
     (Celery Beat). build_message() é mantido independente de send_summary()
